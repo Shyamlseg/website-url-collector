@@ -27,6 +27,9 @@ DOC_HINT = re.compile(
 DOC_FILE_HINT = re.compile(
     r'(?:\.(?:pdf|docx?|xlsx?|pptx?|rtf|od[tsp])(?:$|[?#])'
     r'|\.ashx(?:$|[?#])|/getfile|/download\.aspx|/viewdocument)', re.I)
+# Document URL inside onclick / data-* attribute text.
+ATTR_DOC_RX = re.compile(r"""(['"])([^'"]+?\.(?:pdf|docx?|xlsx?|pptx?|rtf|od[tsp])(?:[?#][^'"]*)?)\1"""
+                         r"""|([^\s'"=()]+?\.(?:pdf|docx?|xlsx?|pptx?|rtf|od[tsp]))(?=$|[\s?#'")])""", re.I)
 # PDF.js / generic embedded-viewer wrappers: ...viewer.html?file=/x.pdf
 VIEWER_PARAMS = ('file', 'url', 'src', 'document', 'doc', 'pdf', 'href')
 UNSAFE = re.compile(r'/(?:logout|log-out|login|log-in|signin|sign-in|signup|sign-up|register|cart|'
@@ -43,7 +46,8 @@ ESG_NAV = re.compile(
     r'\b(?:esg|sustainab(?:ility|le)?|environment(?:al)?|climate|social(?: responsibility)?|'
     r'governance|corporate governance|ethics|compliance|polic(?:y|ies)|reports?|disclosures?|'
     r'documents?|charters?|human rights|responsible sourcing|health and safety|board|committees?|'
-    r'resources?|responsibility)\b', re.I)
+    r'resources?|responsibility|investors?|financials?|results?|shareholders?|notices?|'
+    r'annual reports?|presentations?|filings?|downloads?)\b', re.I)
 MENU_NAV = re.compile(r'^(?:menu|open menu|navigation|main menu|site menu|more)$', re.I)
 # Anchors that say nothing on their own: borrow the card heading.
 GENERIC_ANCHOR = re.compile(r'^(?:read more|learn more|more|view|view more|details|download|'
@@ -53,7 +57,7 @@ PAGE_PATH_RX = re.compile(r'/(?:page|pg)[-/_]?(\d+)/?$|/p/(\d+)/?$', re.I)
 # Article / detail pages (dated paths, numeric ids, long slugs).
 DETAIL_RX = re.compile(r'/(?:19|20)\d{2}/(?:0?[1-9]|1[0-2])(?:/|$)|/\d{5,}(?:/|$)'
                        r'|/[a-z0-9]+(?:-[a-z0-9]+){4,}/?$', re.I)
-# v4: first folder that means shop / product catalogue - never holds ESG documents.
+# First folder that means shop / product catalogue - never holds company documents.
 ECOM_FOLDERS = {'p', 'pd', 'dp', 'product', 'products', 'shop', 'store', 'item', 'items', 'sku',
                 'buy', 'deals', 'deal', 'coupons', 'brands', 'brand', 'c', 'category',
                 'categories', 'collections', 'catalog', 'catalogue', 'recipes', 'recipe'}
@@ -67,7 +71,7 @@ ESG_STRONG = (
     'water-stewardship', 'waste', 'zero-waste', 'recycl*', 'circular-economy', 'circularity',
     'biodiversity', 'nature', 'natural-capital', 'deforestation', 'pollution', 'social-impact',
     'social-responsibility', 'corporate-responsibility', 'corporate-accountability', 'accountability',
-    'csr', 'community', 'community-investment', 'human-right*', 'labor-right*', 'labour-right*',
+    'csr', 'brsr', 'community', 'community-investment', 'human-right*', 'labor-right*', 'labour-right*',
     'modern-slavery', 'responsible-sourcing', 'responsible-supply-chain', 'supplier-code',
     'supply-chain-standard*', 'diversity', 'inclusion', 'equity', 'dei', 'health-and-safety',
     'occupational-health', 'employee-wellbeing', 'wellbeing', 'governance', 'ethics', 'ethical',
@@ -85,29 +89,39 @@ ESG_GATEWAY = (
     'resource', 'resources', 'report', 'reports', 'reporting', 'publication*', 'document*',
     'download*', 'library', 'archive', 'centre', 'center', 'hub', 'investor*', 'esg-data',
 )
-# Pages that reliably contain no ESG documents. Exact tokens unless starred.
-NEGATIVE = (
-    'earning*', 'quarterly-result*', 'financial-result*', 'sec-filing*', 'edgar', '10-k', '10-q',
-    '8-k', '20-f', '6-k', 'proxy', 'proxy-statement', 'stock-info', 'stock-quote', 'share-price',
-    'shareprice', 'dividend*', 'analyst-coverage', 'credit-rating*', 'debt-information',
-    'bond-information', 'investor-presentation*', 'webcast*', 'transcript*', 'news', 'newsroom',
-    'news-release*', 'press', 'press-release*', 'press-room', 'media-release*', 'media-centre',
-    'media-center', 'event', 'events', 'calendar', 'conference*', 'webinar*', 'podcast*', 'stories',
-    'story', 'article', 'articles', 'blog', 'blogs', 'insight', 'insights', 'contact', 'contact-us',
-    'email-alert*', 'subscribe', 'subscription*', 'newsletter*', 'customer-support', 'support',
-    'help', 'faq', 'faqs', 'request-information', 'request-a-demo', 'demo', 'photo', 'photos',
-    'photography', 'image', 'images', 'gallery', 'galleries', 'video', 'videos', 'multimedia',
-    'audio', 'youtube', 'vimeo', 'career', 'careers', 'job', 'jobs', 'vacancies', 'recruitment',
-    'location', 'locations', 'dealer*', 'store', 'stores', 'shop', 'cart', 'checkout', 'login',
-    'logout', 'signin', 'signup', 'register', 'account', 'my-account', 'profile', 'search',
-    'share', 'print', 'cookie', 'cookies', 'terms',
-    'terms-of-use', 'legal', 'disclaimer', 'accessibility', 'sitemap', 'rss', 'feed',
+# v5: HARD negatives - sections that never hold company documents. Blocked.
+HARD_NEGATIVE = (
+    'contact', 'contact-us', 'email-alert*', 'subscribe', 'subscription*', 'newsletter*',
+    'customer-support', 'support', 'help', 'faq', 'faqs', 'request-information', 'request-a-demo',
+    'demo', 'photo', 'photos', 'photography', 'image', 'images', 'gallery', 'galleries', 'video',
+    'videos', 'multimedia', 'audio', 'youtube', 'vimeo', 'podcast*', 'webinar*', 'career', 'careers',
+    'job', 'jobs', 'vacancies', 'recruitment', 'dealer*', 'store-locator', 'stores', 'shop', 'cart',
+    'checkout', 'login', 'logout', 'signin', 'signup', 'register', 'account', 'my-account',
+    'profile', 'search', 'share', 'print', 'cookie', 'cookies', 'terms', 'terms-of-use',
+    'accessibility', 'sitemap', 'rss', 'feed', 'stock-quote', 'share-price', 'shareprice',
+    'stock-chart', 'calculator*', 'emi-calculator',
+)
+# v5: SOFT negatives - loop-prone sections that MAY hold documents (press
+# releases, events with presentations). Not blocked, crawled last.
+SOFT_NEGATIVE = (
+    'news', 'newsroom', 'news-release*', 'press', 'press-release*', 'press-room', 'media',
+    'media-release*', 'media-centre', 'media-center', 'event', 'events', 'calendar', 'conference*',
+    'stories', 'story', 'article', 'articles', 'blog', 'blogs', 'insight', 'insights', 'location',
+    'locations', 'webcast*',
 )
 # Path tokens that strongly imply "this page lists documents".
 DOC_HUB = ('report', 'reports', 'reporting', 'publication*', 'document*', 'download*', 'library',
            'archive', 'resource', 'resources', 'disclosure*', 'filing*', 'policy', 'policies',
            'data-centre', 'data-center', 'esg-data', 'general-meeting*',
-           'annual-general-meeting*', 'ordinary-general-meeting*', 'agm', 'charter*')
+           'annual-general-meeting*', 'ordinary-general-meeting*', 'agm', 'egm', 'charter*',
+           # v5: investor / financial pages are document hubs, not negatives.
+           'investor*', 'financial*', 'result*', 'earning*', 'quarterly*', 'annual*',
+           'presentation*', 'shareholder*', 'shareholding*', 'dividend*', 'iepf', 'notice*',
+           'intimation*', 'announcement*', 'transcript*', 'proxy', 'sec-filing*', '10-k', '10-q',
+           '20-f', 'credit-rating*', 'corporate-governance', 'governance', 'code*', 'regulation*',
+           'sebi', 'postal-ballot', 'outcome*', 'board-meeting*', 'statutory', 'secretarial',
+           'compliance*', 'debenture*', 'bond*', 'debt*', 'prospectus', 'brochure*', 'factsheet*',
+           'fact-sheet*', 'rera', 'csr', 'brsr', 'esg', 'sustainab*', 'circular*', 'form*')
 
 
 # --------------------------------------------------------------------------- #
@@ -180,7 +194,8 @@ def match_vocab(tokens, compiled):
 
 V_STRONG = compile_vocab(ESG_STRONG)
 V_GATEWAY = compile_vocab(ESG_GATEWAY)
-V_NEGATIVE = compile_vocab(NEGATIVE)
+V_NEGATIVE = compile_vocab(HARD_NEGATIVE)
+V_SOFT = compile_vocab(SOFT_NEGATIVE)
 V_DOC_HUB = compile_vocab(DOC_HUB)
 
 
@@ -212,6 +227,11 @@ def output_dir_for(seed, root):
     return root / f'{key}_{digest}'
 
 
+def strip_fragment(u):
+    p = urlsplit(u or '')
+    return urlunsplit((p.scheme, p.netloc, p.path or '/', p.query, ''))
+
+
 # --------------------------------------------------------------------------- #
 # Config
 # --------------------------------------------------------------------------- #
@@ -223,13 +243,14 @@ class Config:
     max_year_options: int = 4
     max_depth: int = 6
     max_pages_per_website: int = 400
-    max_documents_per_page: int = 50
+    max_documents_per_page: int = 200
     max_esg_navigation_clicks_per_page: int = 8
     # ---- anti-trap ----
     section_probe_pages: int = 12           # zero-doc pages processed in a section before it is abandoned
     expansion_budget_seconds: int = 35      # time for pagination + load-more + year loops per page
     sitemap_document_folders: bool = False  # queue parent folder of sitemap document URLs
-    # ---- v4 per-website limits ----
+    max_low_priority_children_per_page: int = 10   # news / blog / events links followed per page
+    # ---- per-website limits ----
     max_minutes_per_website: int = 15       # hard time budget per website
     stall_minutes: int = 5                  # stop a website if no page finishes for this long
     parallel_websites: int = 3              # websites crawled at the same time
@@ -247,8 +268,8 @@ class Config:
     restrict_to_seed_language: bool = True
     allowed_hosts: tuple = ()
     # ---- budgets ----
-    max_new_children_per_page: int = 40
-    max_homepage_children: int = 100
+    max_new_children_per_page: int = 60
+    max_homepage_children: int = 150
     max_pages_per_url_family: int = 25
     max_query_variants_per_path: int = 3
     follow_same_family_links_from_detail_pages: bool = False
@@ -257,7 +278,7 @@ class Config:
     query_parameter_mode: str = 'whitelist'         # 'whitelist' or 'blacklist'
     keep_meaningful_query_parameters: tuple = (
         'year', 'page', 'paged', 'p', 'offset', 'start', 'category', 'cat', 'type', 'section',
-        'id', 'doc', 'document', 'file', 'lang', 'locale')
+        'id', 'doc', 'document', 'file', 'lang', 'locale', 'tab')
     remove_query_parameters: tuple = ('utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
                                       'utm_content', 'fbclid', 'gclid', 'msclkid', 'mc_cid',
                                       'mc_eid', 'ref', 'referrer', '_ga')
@@ -266,12 +287,13 @@ class Config:
     use_sitemap: bool = True
     max_sitemaps: int = 25
     max_sitemap_urls: int = 5000
+    max_neutral_sitemap_urls: int = 150
     # ---- runtime ----
     concurrency: int = 4
     block_heavy_resources: bool = True
     export_checkpoint_pages: int = 25
     recover_orphaned_pages: bool = True
-    user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/4.0)'
+    user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/5.0)'
     robots_agent: str = 'websiteurlcollector'
 
     @classmethod
@@ -303,6 +325,7 @@ class Config:
             'section_probe_pages': ('SECTION_PROBE_PAGES', int),
             'expansion_budget_seconds': ('EXPANSION_BUDGET_SECONDS', int),
             'sitemap_document_folders': ('SITEMAP_DOCUMENT_FOLDERS', bool),
+            'max_low_priority_children_per_page': ('MAX_LOW_PRIORITY_CHILDREN_PER_PAGE', int),
             'max_minutes_per_website': ('MAX_MINUTES_PER_WEBSITE', int),
             'stall_minutes': ('STALL_MINUTES', int),
             'parallel_websites': ('PARALLEL_WEBSITES', int),
@@ -327,6 +350,7 @@ class Config:
             'use_sitemap': ('USE_SITEMAP', bool),
             'max_sitemaps': ('MAX_SITEMAPS', int),
             'max_sitemap_urls': ('MAX_SITEMAP_URLS', int),
+            'max_neutral_sitemap_urls': ('MAX_NEUTRAL_SITEMAP_URLS', int),
             'concurrency': ('CONCURRENCY', int),
             'block_heavy_resources': ('BLOCK_HEAVY_RESOURCES', bool),
             'export_checkpoint_pages': ('EXPORT_CHECKPOINT_PAGES', int),
@@ -345,6 +369,7 @@ class Config:
         c.max_depth = max(0, c.max_depth)
         c.max_pages_per_website = max(1, c.max_pages_per_website)
         c.section_probe_pages = max(3, c.section_probe_pages)
+        c.max_low_priority_children_per_page = max(0, c.max_low_priority_children_per_page)
         c.max_minutes_per_website = max(1, c.max_minutes_per_website)
         c.stall_minutes = max(1, c.stall_minutes)
         c.parallel_websites = max(1, min(6, c.parallel_websites))
@@ -453,7 +478,8 @@ class Collector:
                               after_page_limit=0, negative=0, esg_priority=0, robots_blocked=0,
                               sitemap_seeded=0, orphans_recovered=0, esg_reveals=0,
                               unconfirmed_network_documents=0, section_dead=0,
-                              expansion_budget_hits=0, detail_pagination_skipped=0)
+                              expansion_budget_hits=0, detail_pagination_skipped=0,
+                              url_fallbacks=0)
         self.stats = dict(duplicates=0, pagination_detected=0, pagination_limits=0, pagination_states=0,
                           load_more=0, year_switches=0, max_depth=0, documents=0)
         self._lock = asyncio.Lock()
@@ -472,7 +498,8 @@ class Collector:
         return urlunsplit((p.scheme.lower(), p.netloc.lower(), p.path or '/', p.query, ''))
 
     def norm(self, u, base=None, parent_view=False):
-        """Canonical form. parent_view=True additionally strips pagination keys."""
+        """Canonical form used for de-duplication only (never for opening).
+        parent_view=True additionally strips pagination keys."""
         try:
             p = urlsplit(urljoin(base or self.seed, (u or '').strip()))
             if p.scheme.lower() not in ('http', 'https') or not p.hostname:
@@ -535,8 +562,13 @@ class Collector:
         return None
 
     def is_detail(self, u):
-        """Article/detail URL: dated path, numeric id or long slug."""
-        return bool(DETAIL_RX.search(urlsplit(u or '').path or ''))
+        """Article/detail URL: dated path, numeric id or long slug.
+        v5: a URL that names a document hub (financial-results, investor-...,
+        corporate-governance-policies, ...) is never treated as a detail page."""
+        path = urlsplit(u or '').path or ''
+        if not DETAIL_RX.search(path):
+            return False
+        return not match_vocab(canon(path), V_DOC_HUB)
 
     def policy(self, u):
         if not self.internal(u):
@@ -665,9 +697,14 @@ class Collector:
         dochub = match_vocab(tokens, V_DOC_HUB)
         return strong, negative, gateway, dochub
 
+    def soft(self, u, text=''):
+        """News / blog / events style link (low priority, never blocked)."""
+        p = urlsplit(u or '')
+        return match_vocab(canon((p.path or '') + ' ' + (text or '')), V_SOFT)
+
     def path_blocked(self, u, text=''):
-        """URL path wins over link text. /news/... and shop folders (/p/, /product/)
-        are ignored even when the title contains ESG words."""
+        """Only HARD negatives and shop folders are blocked. The URL path wins over
+        link text; a hub/ESG word in the path keeps the URL alive."""
         segs = [s for s in (urlsplit(u or '').path or '').split('/') if s]
         if segs and self.language_prefix and '/' + segs[0].lower() + '/' == self.language_prefix:
             segs = segs[1:]
@@ -675,35 +712,40 @@ class Collector:
             return True
         for seg in segs[:-1]:
             toks = canon(seg)
-            if match_vocab(toks, V_NEGATIVE) and not match_vocab(toks, V_STRONG):
+            if match_vocab(toks, V_NEGATIVE) and not match_vocab(toks, V_STRONG) and \
+                    not match_vocab(toks, V_DOC_HUB):
                 return True
-        path_strong, path_negative, _, _ = self.signals(u, '')
-        if path_negative and not path_strong:
+        path_tokens = canon(urlsplit(u or '').path or '')
+        if match_vocab(path_tokens, V_NEGATIVE) and not match_vocab(path_tokens, V_STRONG) and \
+                not match_vocab(path_tokens, V_DOC_HUB):
             return True
-        strong, negative, _, _ = self.signals(u, text)
-        return negative and not strong
+        if segs:
+            return False
+        strong, negative, _, dochub = self.signals(u, text)
+        return negative and not strong and not dochub
 
     def priority(self, u, text=''):
-        # Detail pages (product / article) only get ESG priority from their real
+        # Detail pages (product / article) only get high priority from their real
         # folders, not from the product or article title.
         if self.is_detail(u):
             segs = [x for x in (urlsplit(u).path or '').split('/') if x][:-1]
             folders = [x for x in segs if not x.isdigit() and not (len(x) > 24 and '-' in x)]
-            f_strong = match_vocab(canon(' '.join(folders)), V_STRONG)
-            _, _, _, own_dochub = self.signals(u, text)
-            return 1 if (f_strong or own_dochub) else 3
+            f_toks = canon(' '.join(folders))
+            if match_vocab(f_toks, V_STRONG) or match_vocab(f_toks, V_DOC_HUB):
+                return 1
+            return 8 if self.soft(u, '') else 3
         strong, negative, gateway, dochub = self.signals(u, text)
         host = (urlsplit(u or '').hostname or '').lower()
         if strong and dochub:
             return 0
         if strong:
-            return 0 if not negative else 1
-        if host != self.host and any(k in host for k in ('investor', 'esg', 'sustain', 'responsib')):
+            return 0
+        if host != self.host and any(k in host for k in ('investor', 'esg', 'sustain', 'responsib', 'ir.')):
             return 0
         if dochub and self.cfg.prioritize_document_likely_pages:
             return 1
-        if negative:
-            return 9
+        if self.soft(u, text):
+            return 8
         if gateway:
             return 2
         return 3
@@ -773,13 +815,15 @@ class Collector:
         n = self.norm(u, parent or self.seed)
         if not n:
             return False
+        # v5: keep the real absolute URL (original slash / query) for opening.
+        open_url = strip_fragment(urljoin(parent or self.seed, (u or '').strip()))
         text = (text or '')[:500]
         strong, negative, gateway, dochub = self.signals(n, text)
         if priority is None:
             priority = self.priority(n, text)
         if parent:
             self.db.execute('INSERT OR IGNORE INTO links(from_url,to_url,normalized_to_url,link_text,'
-                            'discovered_at) VALUES(?,?,?,?,?)', (parent, u, n, text, now()))
+                            'discovered_at) VALUES(?,?,?,?,?)', (parent, open_url, n, text, now()))
         if self.db.execute('SELECT 1 FROM pages WHERE normalized_url=?', (n,)).fetchone():
             self.stats['duplicates'] += 1
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
@@ -803,8 +847,8 @@ class Collector:
         qpath = self.query_path(n)
         has_query = 1 if urlsplit(n).query else 0
         # Priority 0 gets a larger allowance, never an unlimited one.
-        qv_cap = self.cfg.max_query_variants_per_path * (2 if priority == 0 else 1)
-        fam_cap = self.cfg.max_pages_per_url_family * (3 if priority == 0 else 1)
+        qv_cap = self.cfg.max_query_variants_per_path * (2 if priority <= 1 else 1)
+        fam_cap = self.cfg.max_pages_per_url_family * (3 if priority <= 1 else 1)
         if ok and source != 'seed' and has_query and self.query_variant_count(n) >= qv_cap:
             self.increment_counter('query_limit')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
@@ -826,7 +870,7 @@ class Collector:
                 'INSERT INTO pages(seed_url,page_url,normalized_url,parent_url,link_text,priority,depth,'
                 'status,page_type,url_family,query_path,has_query,discovered_order,discovered_at,'
                 'error_message) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                (self.seed, u, n, parent, text, priority, depth, status, typ, family, qpath,
+                (self.seed, open_url, n, parent, text, priority, depth, status, typ, family, qpath,
                  has_query, order, now(), err))
         except sqlite3.IntegrityError:
             self.stats['duplicates'] += 1
@@ -838,7 +882,7 @@ class Collector:
         decision = 'QUEUED' if status == 'DISCOVERED' else 'SKIPPED'
         self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                             gateway, dochub, decision, err or 'ACCEPTED')
-        logging.info('Discovered [%s] p=%s d=%s src=%s %s', status, priority, depth, source, n)
+        logging.info('Discovered [%s] p=%s d=%s src=%s %s', status, priority, depth, source, open_url)
         return status == 'DISCOVERED'
 
     def claim_next(self):
@@ -931,6 +975,7 @@ class Collector:
             for loc in locs:
                 if added >= self.cfg.max_sitemap_urls:
                     break
+                loc = loc.replace('&amp;', '&')
                 if is_index or re.search(r'sitemap[^/]*\.xml(?:\.gz)?$', loc, re.I):
                     if len(queue) + fetched < self.cfg.max_sitemaps:
                         queue.append(loc)
@@ -945,15 +990,14 @@ class Collector:
                             if self.add(parent, self.seed, 'sitemap document folder', 1, 0, 'sitemap'):
                                 added += 1
                     continue
-                strong, negative, _, dochub = self.signals(n)
                 if self.path_blocked(n):
                     continue
                 rank = self.priority(n)
-                if rank > 2 and not dochub:
-                    if neutral_added >= 50:
+                if rank > 2:
+                    if neutral_added >= self.cfg.max_neutral_sitemap_urls:
                         continue
                     neutral_added += 1
-                if self.add(n, self.seed, 'sitemap', 1, rank, 'sitemap'):
+                if self.add(loc, self.seed, 'sitemap', 1, rank, 'sitemap'):
                     added += 1
         if added:
             self.increment_counter('sitemap_seeded', added)
@@ -1019,7 +1063,7 @@ class Collector:
         return False
 
     async def reveal(self, p):
-        """Reveal bounded navigation controls, then ESG controls. Buttons and
+        """Reveal bounded navigation controls, then document-section controls. Buttons and
         summaries only are clicked; ordinary anchors are never activated."""
         clicked = False
         clicked_keys = set()
@@ -1031,7 +1075,8 @@ class Collector:
             "button[aria-haspopup=menu],[role=button][aria-haspopup=menu],"
             "main button:not([type=submit]),main [role=button],main summary,"
             "article button:not([type=submit]),article [role=button],article summary,"
-            "[role=main] button:not([type=submit]),[role=main] [role=button],[role=main] summary"
+            "[role=main] button:not([type=submit]),[role=main] [role=button],[role=main] summary,"
+            "[role=tab]"
         )
         for stage in ('menu', 'esg'):
             while click_count < self.cfg.max_esg_navigation_clicks_per_page:
@@ -1050,7 +1095,8 @@ class Collector:
                                         await el.get_attribute('class') or '')
                             if identity in clicked_keys or not await el.is_visible():
                                 continue
-                            if await el.get_attribute('aria-expanded') == 'true':
+                            if await el.get_attribute('aria-expanded') == 'true' or \
+                                    await el.get_attribute('aria-selected') == 'true':
                                 continue
                             if stage == 'menu' and is_host_homepage and MENU_NAV.search(text):
                                 candidate, label, key = el, text, identity
@@ -1070,7 +1116,7 @@ class Collector:
                     await p.wait_for_timeout(250)
                     after = len(await self.links(p))
                     self.increment_counter('esg_reveals')
-                    logging.info('ESG navigation revealed label=%s new_links=%s page=%s',
+                    logging.info('Navigation revealed label=%s new_links=%s page=%s',
                                  label, max(0, after - before), p.url)
                 except PWError:
                     break
@@ -1084,12 +1130,12 @@ class Collector:
                 continue
             try:
                 vals = await f.locator('a[href],area[href],[data-href],[data-url],[data-link],[data-target]').evaluate_all(
-                    "els=>els.slice(0,3000).map(e=>{"
+                    "els=>els.slice(0,4000).map(e=>{"
                     "const u=e.href||e.getAttribute('data-href')||e.getAttribute('data-url')||"
                     "e.getAttribute('data-link')||e.getAttribute('data-target')||'';"
                     "const card=e.closest('article,.card,.item,.row,li,section,div');"
                     "const heading=card?card.querySelector('h1,h2,h3,h4,h5,h6,.title,.heading'):null;"
-                    "const own=(e.innerText||e.getAttribute('aria-label')||e.title||'').trim();"
+                    "const own=(e.innerText||e.textContent||e.getAttribute('aria-label')||e.title||'').trim();"
                     "const head=heading?(heading.textContent||'').trim():'';"
                     "const label=head?(head+' | '+own):own;"
                     "try{return [new URL(u,document.baseURI).href,label]}catch(_){return ['',label]}})")
@@ -1097,47 +1143,61 @@ class Collector:
                 continue
             src = 'page' if f == p.main_frame else 'iframe'
             for u, t in vals:
-                if u and u not in seen:
+                if u and u not in seen and not u.lower().startswith(('javascript:', 'mailto:', 'tel:')):
                     seen.add(u)
                     out.append((u, (t or '')[:500], src))
         return out
 
     async def content_document_links(self, p):
-        """Document candidates from page content only, excluding shared chrome."""
+        """Document candidates from the whole page except shared chrome
+        (header / footer / nav / cookie banners). v5: no longer limited to
+        <main>, and also reads onclick / data-* attributes."""
         out, seen = [], set()
-        blocked = ("header,footer,nav,aside,[role=navigation],[role=banner],[role=contentinfo],"
-                   ".header,.footer,.navbar,.navigation,.nav-menu,.menu,.sidebar,.cookie,.cookies,"
+        blocked = ("header,footer,nav,[role=navigation],[role=banner],[role=contentinfo],"
+                   ".navbar,.nav-menu,.main-menu,.mega-menu,.cookie,.cookies,"
                    ".cookie-banner,.cookie-consent,.social,.share")
-        main = ("main,article,[role=main],.main-content,.page-content,.content-area,"
-                ".content-wrapper,.body-content,#content,#main")
-        js = ("els=>els.filter(a=>!a.closest('%s')).filter(a=>Boolean(a.closest('%s')))"
-              ".map(a=>[a.href,(a.innerText||a.getAttribute('aria-label')||a.title||'').trim()])"
-              % (blocked, main))
-        fallback = ("els=>els.filter(a=>!a.closest('%s'))"
-                    ".map(a=>[a.href,(a.innerText||a.getAttribute('aria-label')||a.title||'').trim()])"
-                    % blocked)
+        js = ("els=>els.filter(a=>!a.closest('%s'))"
+              ".map(a=>[a.href,(a.innerText||a.textContent||a.getAttribute('aria-label')||a.title||'').trim()])"
+              % blocked)
+        attrs = ("els=>els.filter(e=>!e.closest('%s')).map(e=>{"
+                 "const v=[e.getAttribute('onclick'),e.getAttribute('data-href'),e.getAttribute('data-url'),"
+                 "e.getAttribute('data-file'),e.getAttribute('data-pdf'),e.getAttribute('data-src'),"
+                 "e.getAttribute('data-link'),e.getAttribute('data-download'),e.getAttribute('value')]"
+                 ".filter(Boolean).join(' ');"
+                 "return [v,(e.innerText||e.textContent||e.getAttribute('aria-label')||'').trim().slice(0,300)]})"
+                 % blocked)
         embeds = ("els=>els.map(e=>[e.src||e.data||'',(e.getAttribute('title')||e.getAttribute('aria-label')"
                   "||e.tagName).trim()]).filter(x=>x[0])")
         for f in p.frames:
             if f != p.main_frame and f.url and not self.internal(f.url):
                 continue
             is_main = f == p.main_frame
+            src = 'main_content' if is_main else 'iframe_main_content'
             try:
-                vals = await f.locator('a[href],area[href]').evaluate_all(js)
-                if not vals:
-                    vals = await f.locator('a[href],area[href]').evaluate_all(fallback)
+                vals = list(await f.locator('a[href],area[href]').evaluate_all(js))
             except PWError:
                 vals = []
             try:
-                vals = list(vals) + list(await f.locator(
-                    'embed[src],object[data],iframe[src]').evaluate_all(embeds))
+                vals += list(await f.locator('embed[src],object[data],iframe[src]').evaluate_all(embeds))
             except PWError:
                 pass
-            src = 'main_content' if is_main else 'iframe_main_content'
             for u, t in vals:
                 if u and u not in seen:
                     seen.add(u)
                     out.append((u, (t or '')[:500], src))
+            try:
+                attr_vals = await f.locator(
+                    '[onclick],[data-href],[data-url],[data-file],[data-pdf],[data-src],'
+                    '[data-link],[data-download],option[value]').evaluate_all(attrs)
+            except PWError:
+                attr_vals = []
+            base = f.url or p.url
+            for blob, t in attr_vals:
+                for m in ATTR_DOC_RX.finditer(blob or ''):
+                    u = urljoin(base, (m.group(2) or m.group(3) or '').strip())
+                    if u not in seen and u.startswith('http'):
+                        seen.add(u)
+                        out.append((u, (t or '')[:500], src + '_attribute'))
         return out
 
     async def confirm(self, ctx, u):
@@ -1196,7 +1256,7 @@ class Collector:
         # Network responses are audit-only; DOM evidence is required.
         if response_docs:
             self.increment_counter('unconfirmed_network_documents', len(response_docs))
-        # 1) Content links + embedded viewers.
+        # 1) Content links + embedded viewers + onclick/data attributes.
         for u, text, src in await self.content_document_links(p):
             if len(documents) >= cap:
                 break
@@ -1206,14 +1266,15 @@ class Collector:
             if self.doclike(target) and await self.confirm(ctx, target):
                 seen_docs.add(target)
                 documents.append((target, src if target == u else src + '_embedded_viewer', text))
-        for u, src, text in documents:
+        for u, src, text in documents[:20]:
             logging.info('Document evidence source=%s page=%s document=%s', src, parent, u)
+        if len(documents) > 20:
+            logging.info('... plus %s more document(s) on %s', len(documents) - 20, parent)
         # 2) Child discovery.
         candidates, seen = [], set()
         parent_family = self.url_family(parent)
         parent_parts = [x for x in urlsplit(parent).path.split('/') if x]
-        parent_is_detail = self.is_detail(parent) or len(parent_parts) >= 4 or \
-            ('-' in parent_parts[-1] if parent_parts else False)
+        parent_is_detail = self.is_detail(parent) or len(parent_parts) >= 4
         _, _, _, parent_dochub = self.signals(parent, '')
         for child, raw_text, _ in all_links:
             n = self.norm(child, parent)
@@ -1236,20 +1297,20 @@ class Collector:
                 self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
                                     gateway, dochub, 'IGNORED', 'SAME_FAMILY_DETAIL_SUPPRESSION')
                 continue
-            candidates.append((rank, n, text))
+            candidates.append((rank, n, text, child))
         candidates.sort(key=lambda x: (x[0], x[1]))
         budget = (self.cfg.max_homepage_children if parent.rstrip('/') == self.seed.rstrip('/')
                   else self.cfg.max_new_children_per_page)
-        p0 = [x for x in candidates if x[0] == 0][:budget]
-        p1 = [x for x in candidates if x[0] == 1][:25]
-        p2 = [x for x in candidates if x[0] == 2][:max(10, budget)]
-        p3 = [x for x in candidates if x[0] == 3][:10]
-        selected = p0 + p1 + p2 + p3
-        for rank, n, text in selected:
-            self.add(n, parent, text, depth + 1, rank)
+        # v5: fill the page budget in priority order (no per-bucket cap on normal
+        # pages); only low-priority news / blog / events links have their own cap.
+        normal = [x for x in candidates if x[0] < 8]
+        low = [x for x in candidates if x[0] >= 8][:self.cfg.max_low_priority_children_per_page]
+        selected = normal[:budget] + low
+        for rank, n, text, child in selected:
+            self.add(child, parent, text, depth + 1, rank)
         selected_set = {x[1] for x in selected}
         ignored_candidates = [x for x in candidates if x[1] not in selected_set]
-        for rank, n, text in ignored_candidates:
+        for rank, n, text, _ in ignored_candidates:
             strong, negative, gateway, dochub = self.signals(n, text)
             self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
                                 gateway, dochub, 'IGNORED', 'PARENT_PRIORITY_BUDGET')
@@ -1316,6 +1377,13 @@ class Collector:
         except PWError:
             hrefs = ''
         return hashlib.sha256((text + (hrefs or '')).encode(errors='ignore')).hexdigest()
+
+    def merge_docs(self, documents, docs):
+        have = {x[0] for x in documents}
+        for d in docs:
+            if d[0] not in have and len(documents) < self.cfg.max_documents_per_page:
+                documents.append(d)
+                have.add(d[0])
 
     async def crawl_pagination(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None):
         """Bounded pagination walk. Brakes: page ceiling, visited set, DOM
@@ -1404,10 +1472,7 @@ class Collector:
             checked += 1
             self.stats['pagination_states'] += 1
             docs, links2 = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-            for d in docs:
-                if d[0] not in {x[0] for x in documents} and \
-                        len(documents) < self.cfg.max_documents_per_page:
-                    documents.append(d)
+            self.merge_docs(documents, docs)
             new_links = {u for u, _, _ in links2} - seen_links
             seen_links |= new_links
             if not new_links:
@@ -1451,10 +1516,7 @@ class Collector:
             signatures.add(sig)
             self.stats['load_more'] += 1
             docs, _ = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-            for d in docs:
-                if d[0] not in {x[0] for x in documents} and \
-                        len(documents) < self.cfg.max_documents_per_page:
-                    documents.append(d)
+            self.merge_docs(documents, docs)
 
     async def crawl_year_options(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None):
         """Bounded year-dropdown select-and-rescan loop."""
@@ -1477,8 +1539,7 @@ class Collector:
                     "els=>els.map(o=>[o.value,(o.textContent||'').trim()])")
             except PWError:
                 continue
-            years = [(v, t) for v, t in options if YEAR.fullmatch((t or '').strip())
-                     or YEAR.fullmatch((v or '').strip())]
+            years = [(v, t) for v, t in options if re.search(r'(19|20)\d{2}', (t or '') + ' ' + (v or ''))]
             if not years:
                 continue
             years.sort(key=lambda x: (x[1] or x[0]), reverse=True)
@@ -1499,10 +1560,7 @@ class Collector:
                 self.stats['year_switches'] += 1
                 logging.info('Year option switched to %s on %s', label or value, base_url)
                 docs, _ = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-                for d in docs:
-                    if d[0] not in {x[0] for x in documents} and \
-                            len(documents) < self.cfg.max_documents_per_page:
-                        documents.append(d)
+                self.merge_docs(documents, docs)
             return
 
     # ---------------- page processing ----------------
@@ -1557,6 +1615,12 @@ class Collector:
 
     async def process(self, ctx, row, owned):
         u = row['normalized_url']
+        # v5: open the URL exactly as the site linked it; the normalized form
+        # (added slash, filtered query) is only a fallback.
+        targets = [row['page_url'] or u]
+        if u not in targets:
+            targets.append(u)
+        target_idx = 0
         depth = row['depth']
         self.stats['max_depth'] = max(depth, self.stats['max_depth'])
         page_started = time.perf_counter()
@@ -1564,9 +1628,11 @@ class Collector:
         status = None
         for attempt in range(1, self.cfg.max_retries + 2):
             perf = {'navigation': 0.0, 'stabilization': 0.0, 'interaction': 0.0, 'scan': 0.0}
+            open_url = targets[target_idx]
             p = await ctx.new_page()
             owned.append(p)
             response_docs = set()
+            status = None
 
             def on_response(r):
                 try:
@@ -1583,8 +1649,8 @@ class Collector:
 
             p.on('response', on_response)
             try:
-                logging.info('Opening %s attempt %s', u, attempt)
-                r = await self.timed_goto(p, u, perf)
+                logging.info('Opening %s attempt %s', open_url, attempt)
+                r = await self.timed_goto(p, open_url, perf)
                 status = r.status if r else None
                 if status and status >= 400:
                     raise RuntimeError(f'HTTP status {status}')
@@ -1596,7 +1662,7 @@ class Collector:
                         ct = ''
                 if ct and 'text/html' not in ct and 'application/xhtml' not in ct:
                     if any(x in ct for x in DOC_MIME):
-                        response_docs.add(r.url if r else u)
+                        response_docs.add(r.url if r else open_url)
                     else:
                         raise RuntimeError(f'Unexpected content type {ct}')
                 await self.settle(p, perf)
@@ -1614,7 +1680,7 @@ class Collector:
                     self.expansion['detail_pagination_skipped'] += 1
                 else:
                     pdet, checked, limit = await self.crawl_pagination(
-                        p, ctx, u, depth, response_docs, documents, perf, deadline)
+                        p, ctx, open_url, depth, response_docs, documents, perf, deadline)
                     await self.crawl_load_more(p, ctx, u, depth, response_docs, documents, perf, deadline)
                 await self.crawl_year_options(p, ctx, u, depth, response_docs, documents, perf, deadline)
                 found = bool(documents)
@@ -1638,22 +1704,27 @@ class Collector:
                             (u, doc_url, doc_src, (doc_text or '')[:500], now()))
                     self.stats['documents'] += len(documents)
                     self.record_perf(u, page_type, status, page_started, attempt - 1, perf)
-                logging.info('Classified %s %s documents=%s', page_type, u, len(documents))
+                logging.info('Classified %s %s documents=%s', page_type, open_url, len(documents))
                 await self.safe_close(p)
                 if p in owned:
                     owned.remove(p)
                 return
             except (PWError, PWTimeout, RuntimeError) as e:
                 last = f'{type(e).__name__}: {e}'[:2000]
-                logging.warning('Attempt failed %s %s', u, last)
+                logging.warning('Attempt failed %s %s', open_url, last)
                 await self.safe_close(p)
                 if p in owned:
                     owned.remove(p)
+                if self.expired():
+                    break
+                # Try the other URL form once before giving up on a 4xx.
+                if target_idx + 1 < len(targets):
+                    target_idx += 1
+                    self.expansion['url_fallbacks'] += 1
+                    continue
                 permanent_4xx = status is not None and 400 <= status < 500 and status not in (408, 429)
                 if permanent_4xx:
-                    logging.info('Permanent HTTP %s; retries skipped for %s', status, u)
-                    break
-                if self.expired():
+                    logging.info('Permanent HTTP %s; retries skipped for %s', status, open_url)
                     break
                 if attempt <= self.cfg.max_retries:
                     await asyncio.sleep(min(2 ** attempt, 6))
@@ -1725,7 +1796,7 @@ class Collector:
             'delay=%.1fs export=%.1fs parent_budget=%s family_limit=%s query_limit=%s same_family=%s '
             'after_page_limit=%s negative=%s esg_priority=%s robots_blocked=%s sitemap_seeded=%s '
             'orphans_recovered=%s esg_reveals=%s unconfirmed_network_documents=%s section_dead=%s '
-            'expansion_budget_hits=%s detail_pagination_skipped=%s output=%s',
+            'expansion_budget_hits=%s detail_pagination_skipped=%s url_fallbacks=%s output=%s',
             self.seed, total, c.get('PROCESSED', 0), t.get('PDF', 0), docs, t.get('HTML', 0),
             c.get('FAILED', 0), c.get('SKIPPED', 0), self.stats['duplicates'],
             self.stats['pagination_detected'], self.stats['pagination_limits'],
@@ -1739,7 +1810,7 @@ class Collector:
             self.expansion['sitemap_seeded'], self.expansion['orphans_recovered'],
             self.expansion['esg_reveals'], self.expansion['unconfirmed_network_documents'],
             self.expansion['section_dead'], self.expansion['expansion_budget_hits'],
-            self.expansion['detail_pagination_skipped'], self.out)
+            self.expansion['detail_pagination_skipped'], self.expansion['url_fallbacks'], self.out)
 
     # ---------------- run loop ----------------
     async def worker(self, ctx, name):
@@ -1761,7 +1832,7 @@ class Collector:
                     await asyncio.sleep(1.0)
                     continue
                 return
-            self.progress(row['normalized_url'])
+            self.progress(row['page_url'] or row['normalized_url'])
             await self.process_with_watchdog(ctx, row)
             self.last_progress = time.monotonic()
             async with self._lock:
