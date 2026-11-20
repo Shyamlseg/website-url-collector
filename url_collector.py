@@ -18,8 +18,7 @@ DOC_MIME = ('application/pdf', 'application/msword', 'application/vnd.openxmlfor
             'application/vnd.oasis.opendocument', 'application/vnd.ms-excel',
             'application/vnd.ms-powerpoint', 'application/rtf', 'application/octet-stream')
 # Broad hint: file extensions AND document-ish folders. Used ONLY to decide which
-# content links deserve a HEAD check. A folder like /investors/documents/ is often
-# an HTML hub page, so this must never be used to stop crawling a URL.
+# content links deserve a HEAD check. Never used to stop crawling a URL.
 DOC_HINT = re.compile(
     r'(?:\.(?:pdf|docx?|xlsx?|pptx?|rtf|od[tsp])(?:$|[?#])'
     r'|/(?:downloads?|documents?|files?|uploads?|storage|assets?/docs?|media/docs?|attachments?)(?:/|$)'
@@ -39,8 +38,6 @@ NEXT_SYMBOL = re.compile(r'^(?:›|»|→|>|>>|next\s*[›»→>]*)$', re.I)
 LOAD = re.compile(r'\b(?:load|show|view|see)\s+(?:\d+\s+)?more\b', re.I)
 COOKIE = re.compile(r'^(?:accept(?: all| cookies| all cookies)?|allow all|i agree|agree|ok|got it|'
                     r'understood|continue|dismiss|close|reject all|only necessary)$', re.I)
-REVEAL = re.compile(r'\b(?:menu|navigation|nav|accordion|expand|show|reports?|publications?|documents?|'
-                    r'resources?|downloads?|archive|library|view all|see all|all years?)\b', re.I)
 YEAR = re.compile(r'^(19|20)\d{2}$')
 ESG_NAV = re.compile(
     r'\b(?:esg|sustainab(?:ility|le)?|environment(?:al)?|climate|social(?: responsibility)?|'
@@ -48,14 +45,18 @@ ESG_NAV = re.compile(
     r'documents?|charters?|human rights|responsible sourcing|health and safety|board|committees?|'
     r'resources?|responsibility)\b', re.I)
 MENU_NAV = re.compile(r'^(?:menu|open menu|navigation|main menu|site menu|more)$', re.I)
-# v3: anchors that say nothing on their own -> borrow the card heading.
+# Anchors that say nothing on their own: borrow the card heading.
 GENERIC_ANCHOR = re.compile(r'^(?:read more|learn more|more|view|view more|details|download|'
                             r'click here|find out more|explore|see more)?$', re.I)
-# v3: path-based pagination (/page/2, /page-2, /pg2, /p/2).
+# Path-based pagination (/page/2, /page-2, /pg2, /p/2).
 PAGE_PATH_RX = re.compile(r'/(?:page|pg)[-/_]?(\d+)/?$|/p/(\d+)/?$', re.I)
-# v3: article / detail pages (dated paths, numeric ids, long slugs).
+# Article / detail pages (dated paths, numeric ids, long slugs).
 DETAIL_RX = re.compile(r'/(?:19|20)\d{2}/(?:0?[1-9]|1[0-2])(?:/|$)|/\d{5,}(?:/|$)'
                        r'|/[a-z0-9]+(?:-[a-z0-9]+){4,}/?$', re.I)
+# v4: first folder that means shop / product catalogue - never holds ESG documents.
+ECOM_FOLDERS = {'p', 'pd', 'dp', 'product', 'products', 'shop', 'store', 'item', 'items', 'sku',
+                'buy', 'deals', 'deal', 'coupons', 'brands', 'brand', 'c', 'category',
+                'categories', 'collections', 'catalog', 'catalogue', 'recipes', 'recipe'}
 
 # Vocabulary syntax:  "foo" = exact token match, "foo*" = token prefix match,
 # "foo-bar" = consecutive token phrase.
@@ -112,11 +113,11 @@ DOC_HUB = ('report', 'reports', 'reporting', 'publication*', 'document*', 'downl
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
-def now() -> str:
+def now():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
-def ext(url: str) -> str:
+def ext(url):
     name = urlsplit(url).path.rsplit('/', 1)[-1].lower()
     return '.' + name.rsplit('.', 1)[-1] if '.' in name else ''
 
@@ -134,13 +135,13 @@ def env(name, default, typ):
         return default
 
 
-def canon(value: str) -> list:
-    """Lowercase and split into alphanumeric tokens. 'Our_Footprint/2024' -> ['our','footprint','2024']"""
+def canon(value):
+    """Lowercase and split into alphanumeric tokens."""
     return [t for t in re.split(r'[^a-z0-9]+', (value or '').lower()) if t]
 
 
-def compile_vocab(entries) -> tuple:
-    """-> (exact set, prefix tuple, phrase tuple). See vocabulary syntax note above."""
+def compile_vocab(entries):
+    """Returns (exact set, prefix tuple, phrase tuple)."""
     exact, prefixes, phrases = set(), [], []
     for raw in entries:
         star = raw.endswith('*')
@@ -157,7 +158,7 @@ def compile_vocab(entries) -> tuple:
     return exact, tuple(prefixes), tuple(phrases)
 
 
-def match_vocab(tokens, compiled) -> bool:
+def match_vocab(tokens, compiled):
     exact, prefixes, phrases = compiled
     tset = set(tokens)
     if tset & exact:
@@ -184,10 +185,8 @@ V_DOC_HUB = compile_vocab(DOC_HUB)
 
 
 def split_label(text):
-    """links() returns 'card heading | anchor text'.
-    -> (anchor, label_for_scoring). The heading is only borrowed when the anchor
-    itself is generic ('Read more', 'Download', empty). This stops news cards from
-    inheriting ESG words and stops pager links from being hidden behind headings."""
+    """links() returns 'card heading | anchor text'. Returns (anchor, label_for_scoring).
+    The heading is only borrowed when the anchor itself is generic."""
     parts = (text or '').split(' | ')
     anchor = parts[-1].strip()
     scoring = ' '.join(p.strip() for p in parts) if GENERIC_ANCHOR.match(anchor) else anchor
@@ -201,11 +200,11 @@ def path_page_num(path):
     return int(m.group(1) or m.group(2))
 
 
-def slugify(value: str, limit: int = 60) -> str:
+def slugify(value, limit=60):
     return re.sub(r'[^a-z0-9]+', '_', (value or '').lower()).strip('_')[:limit] or 'site'
 
 
-def output_dir_for(seed: str, root: Path) -> Path:
+def output_dir_for(seed, root):
     """Per-seed directory keyed on netloc + path + hash."""
     p = urlsplit(seed)
     key = slugify((p.netloc or '') + (p.path or ''))
@@ -223,13 +222,17 @@ class Config:
     max_load_more_clicks: int = 5
     max_year_options: int = 4
     max_depth: int = 6
-    max_pages_per_website: int = 3000
+    max_pages_per_website: int = 400
     max_documents_per_page: int = 50
     max_esg_navigation_clicks_per_page: int = 8
-    # ---- v3 anti-trap ----
-    section_probe_pages: int = 12           # zero-doc pages processed in a folder before it is abandoned
+    # ---- anti-trap ----
+    section_probe_pages: int = 12           # zero-doc pages processed in a section before it is abandoned
     expansion_budget_seconds: int = 35      # time for pagination + load-more + year loops per page
     sitemap_document_folders: bool = False  # queue parent folder of sitemap document URLs
+    # ---- v4 per-website limits ----
+    max_minutes_per_website: int = 15       # hard time budget per website
+    stall_minutes: int = 5                  # stop a website if no page finishes for this long
+    parallel_websites: int = 3              # websites crawled at the same time
     # ---- timing ----
     page_timeout_seconds: int = 45
     delay_between_pages_seconds: float = 0.35
@@ -251,7 +254,7 @@ class Config:
     follow_same_family_links_from_detail_pages: bool = False
     prioritize_document_likely_pages: bool = True
     # ---- query handling ----
-    query_parameter_mode: str = 'whitelist'         # 'whitelist' | 'blacklist'
+    query_parameter_mode: str = 'whitelist'         # 'whitelist' or 'blacklist'
     keep_meaningful_query_parameters: tuple = (
         'year', 'page', 'paged', 'p', 'offset', 'start', 'category', 'cat', 'type', 'section',
         'id', 'doc', 'document', 'file', 'lang', 'locale')
@@ -268,7 +271,7 @@ class Config:
     block_heavy_resources: bool = True
     export_checkpoint_pages: int = 25
     recover_orphaned_pages: bool = True
-    user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/3.0)'
+    user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/4.0)'
     robots_agent: str = 'websiteurlcollector'
 
     @classmethod
@@ -300,6 +303,9 @@ class Config:
             'section_probe_pages': ('SECTION_PROBE_PAGES', int),
             'expansion_budget_seconds': ('EXPANSION_BUDGET_SECONDS', int),
             'sitemap_document_folders': ('SITEMAP_DOCUMENT_FOLDERS', bool),
+            'max_minutes_per_website': ('MAX_MINUTES_PER_WEBSITE', int),
+            'stall_minutes': ('STALL_MINUTES', int),
+            'parallel_websites': ('PARALLEL_WEBSITES', int),
             'page_timeout_seconds': ('PAGE_TIMEOUT_SECONDS', int),
             'delay_between_pages_seconds': ('DELAY_BETWEEN_PAGES_SECONDS', float),
             'max_retries': ('MAX_RETRIES', int),
@@ -339,7 +345,9 @@ class Config:
         c.max_depth = max(0, c.max_depth)
         c.max_pages_per_website = max(1, c.max_pages_per_website)
         c.section_probe_pages = max(3, c.section_probe_pages)
-        # Expansion must finish well before the hard watchdog kills the page.
+        c.max_minutes_per_website = max(1, c.max_minutes_per_website)
+        c.stall_minutes = max(1, c.stall_minutes)
+        c.parallel_websites = max(1, min(6, c.parallel_websites))
         c.expansion_budget_seconds = max(5, min(c.expansion_budget_seconds,
                                                 c.page_attempt_timeout_seconds - 20))
         if c.query_parameter_mode not in ('whitelist', 'blacklist'):
@@ -354,14 +362,14 @@ class Robots:
     """Minimal robots.txt evaluator: longest-match wins, allow beats
     disallow on equal length, wildcards and $ supported, Sitemap: collected."""
 
-    def __init__(self, agent: str = 'websiteurlcollector'):
+    def __init__(self, agent='websiteurlcollector'):
         self.agent = agent.lower()
-        self.rules = []          # (allow: bool, compiled regex, specificity: int)
+        self.rules = []
         self.sitemaps = []
         self.loaded = False
 
     @staticmethod
-    def _rx(pattern: str):
+    def _rx(pattern):
         out = ''
         for ch in pattern:
             if ch == '*':
@@ -372,7 +380,7 @@ class Robots:
                 out += re.escape(ch)
         return re.compile('^' + out)
 
-    def parse(self, text: str) -> 'Robots':
+    def parse(self, text):
         groups, current, expect_agent = {}, [], True
         for raw in (text or '').splitlines():
             line = raw.split('#', 1)[0].strip()
@@ -404,7 +412,7 @@ class Robots:
         self.loaded = True
         return self
 
-    def allowed(self, url: str) -> bool:
+    def allowed(self, url):
         if not self.rules:
             return True
         p = urlsplit(url)
@@ -420,7 +428,7 @@ class Robots:
 # Collector
 # --------------------------------------------------------------------------- #
 class Collector:
-    def __init__(self, seed, cfg: Config, out_root: Path = None):
+    def __init__(self, seed, cfg, out_root=None):
         self.cfg = cfg
         self.seed = self.norm_seed(seed)
         self.host = (urlsplit(self.seed).hostname or '').lower()
@@ -436,6 +444,7 @@ class Collector:
         self.robots = Robots(cfg.robots_agent)
         self.started = time.monotonic()
         self.stop = False
+        self.last_progress = time.monotonic()
         self.page_limit = False
         self.runtime_limit = False
         self.run_delay_seconds = 0.0
@@ -657,12 +666,13 @@ class Collector:
         return strong, negative, gateway, dochub
 
     def path_blocked(self, u, text=''):
-        """v3: the URL path wins over link text. /news/... is ignored even when the
-        headline says 'climate'; text-only negatives keep the old ESG override."""
-        # Folder segments decide first: /news/climate-plan/ is a news article even
-        # though its slug contains 'climate'. A folder that is itself ESG
-        # (e.g. /sustainability-news/) is not blocked.
+        """URL path wins over link text. /news/... and shop folders (/p/, /product/)
+        are ignored even when the title contains ESG words."""
         segs = [s for s in (urlsplit(u or '').path or '').split('/') if s]
+        if segs and self.language_prefix and '/' + segs[0].lower() + '/' == self.language_prefix:
+            segs = segs[1:]
+        if len(segs) >= 2 and segs[0].lower() in ECOM_FOLDERS:
+            return True
         for seg in segs[:-1]:
             toks = canon(seg)
             if match_vocab(toks, V_NEGATIVE) and not match_vocab(toks, V_STRONG):
@@ -674,6 +684,14 @@ class Collector:
         return negative and not strong
 
     def priority(self, u, text=''):
+        # Detail pages (product / article) only get ESG priority from their real
+        # folders, not from the product or article title.
+        if self.is_detail(u):
+            segs = [x for x in (urlsplit(u).path or '').split('/') if x][:-1]
+            folders = [x for x in segs if not x.isdigit() and not (len(x) > 24 and '-' in x)]
+            f_strong = match_vocab(canon(' '.join(folders)), V_STRONG)
+            _, _, _, own_dochub = self.signals(u, text)
+            return 1 if (f_strong or own_dochub) else 3
         strong, negative, gateway, dochub = self.signals(u, text)
         host = (urlsplit(u or '').hostname or '').lower()
         if strong and dochub:
@@ -692,20 +710,27 @@ class Collector:
 
     # ---------------- section zero-yield ----------------
     def section_prefix(self, u):
-        """Parent folder of a URL: https://x.com/en/news/item-1/ -> https://x.com/en/news/"""
+        """Top-level section of a URL: /p/name/id/ gives /p/ and /en/news/x/ gives /en/news/.
+        ESG / about / investor / report sections are judged one level deeper
+        (/sustainability/reports/) so one empty sub-area cannot kill them."""
         p = urlsplit(u)
         parts = [x for x in (p.path or '').split('/') if x]
+        lang = []
+        if parts and self.language_prefix and '/' + parts[0].lower() + '/' == self.language_prefix:
+            lang, parts = parts[:1], parts[1:]
         if len(parts) < 2:
             return None
-        head = parts[:-1]
-        if len(head) == 1 and self.language_prefix and \
-                '/' + head[0].lower() + '/' == self.language_prefix:
-            return None
-        return f'{p.scheme}://{p.netloc}/' + '/'.join(head) + '/'
+        keep = 1
+        toks = canon(parts[0])
+        if match_vocab(toks, V_STRONG) or match_vocab(toks, V_GATEWAY) or match_vocab(toks, V_DOC_HUB):
+            keep = 2
+            if len(parts) < 3:
+                return None
+        return f'{p.scheme}://{p.netloc}/' + '/'.join(lang + parts[:keep]) + '/'
 
     def section_is_dead(self, u):
-        """True once section_probe_pages pages under the same folder were processed
-        and none of them held a document."""
+        """Prefix once section_probe_pages pages under the same section were processed
+        and none of them held a document; otherwise None."""
         prefix = self.section_prefix(u)
         if not prefix:
             return None
@@ -777,7 +802,7 @@ class Collector:
         family = self.url_family(n)
         qpath = self.query_path(n)
         has_query = 1 if urlsplit(n).query else 0
-        # v3: priority 0 gets a larger allowance, never an unlimited one.
+        # Priority 0 gets a larger allowance, never an unlimited one.
         qv_cap = self.cfg.max_query_variants_per_path * (2 if priority == 0 else 1)
         fam_cap = self.cfg.max_pages_per_url_family * (3 if priority == 0 else 1)
         if ok and source != 'seed' and has_query and self.query_variant_count(n) >= qv_cap:
@@ -817,9 +842,8 @@ class Collector:
         return status == 'DISCOVERED'
 
     def claim_next(self):
-        """Atomic claim, shallow best-first. v3: rows inside a folder that has
-        already proven zero-yield (and that are not document hubs) are skipped
-        here instead of being opened."""
+        """Atomic claim, shallow best-first. Rows inside a section that has already
+        proven zero-yield (and that are not document hubs) are skipped here."""
         self.db.execute('BEGIN IMMEDIATE')
         try:
             chosen = None
@@ -857,8 +881,18 @@ class Collector:
             raise
 
     def expired(self):
-        if time.monotonic() - self.started >= self.cfg.max_runtime_minutes * 60:
+        if self.stop:
+            return True
+        t = time.monotonic()
+        budget = min(self.cfg.max_runtime_minutes, self.cfg.max_minutes_per_website) * 60
+        if t - self.started >= budget:
+            logging.warning('Site time budget reached (%s min): %s',
+                            self.cfg.max_minutes_per_website, self.seed)
             self.runtime_limit = True
+            self.stop = True
+        elif t - self.last_progress >= self.cfg.stall_minutes * 60:
+            logging.warning('No page finished for %s min; stopping site: %s',
+                            self.cfg.stall_minutes, self.seed)
             self.stop = True
         return self.stop
 
@@ -1194,7 +1228,6 @@ class Collector:
                 self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
                                     gateway, dochub, 'IGNORED', 'NEGATIVE_PATH_OR_TEXT')
                 continue
-            # v3: only the child itself (or a document-hub parent) protects a branch.
             protected_branch = dochub or parent_dochub
             if not protected_branch and parent_is_detail and \
                     not self.cfg.follow_same_family_links_from_detail_pages and \
@@ -1207,7 +1240,7 @@ class Collector:
         candidates.sort(key=lambda x: (x[0], x[1]))
         budget = (self.cfg.max_homepage_children if parent.rstrip('/') == self.seed.rstrip('/')
                   else self.cfg.max_new_children_per_page)
-        p0 = [x for x in candidates if x[0] == 0][:budget]          # v3: capped
+        p0 = [x for x in candidates if x[0] == 0][:budget]
         p1 = [x for x in candidates if x[0] == 1][:25]
         p2 = [x for x in candidates if x[0] == 2][:max(10, budget)]
         p3 = [x for x in candidates if x[0] == 3][:10]
@@ -1226,7 +1259,7 @@ class Collector:
 
     # ---------------- pagination ----------------
     def next_page_candidates(self, links, current, visited):
-        """Next-page links, smallest unvisited page number first. v3: same path only."""
+        """Next-page links, smallest unvisited page number first. Same path only."""
         out = []
         cur_num = 1
         for k, v in parse_qsl(urlsplit(current).query):
@@ -1271,8 +1304,8 @@ class Collector:
         return dedup
 
     async def signature(self, p):
-        """DOM fingerprint (v3: URL excluded so repeated content is detected
-        even when the URL changes, e.g. ?page=99 showing page 1 again)."""
+        """DOM fingerprint (URL excluded so repeated content is detected
+        even when the URL changes)."""
         try:
             text = (await p.locator('main,[role=main],body').first.inner_text(timeout=3000))[:100000]
         except PWError:
@@ -1338,8 +1371,8 @@ class Collector:
                         except PWError:
                             continue
                         low = text.lower()
-                        # v3: 'next article' / 'next story' are not pagination.
-                        if re.search(r'next\s+(?:article|story|post|news|item)', low):
+                        # 'next article' / 'next story' are not pagination.
+                        if re.search(r'next\s+(?:article|story|post|news|item|product)', low):
                             continue
                         if NEXT.match(text) or NEXT_SYMBOL.match(text) or 'next' in low:
                             try:
@@ -1477,8 +1510,9 @@ class Collector:
         done = self.db.execute("SELECT COUNT(*) FROM pages WHERE status IN ('PROCESSED','FAILED')"
                                ).fetchone()[0]
         queued = self.db.execute("SELECT COUNT(*) FROM pages WHERE status='DISCOVERED'").fetchone()[0]
-        logging.info('PROGRESS completed=%s queued=%s documents=%s elapsed=%.1fs current=%s',
-                     done, queued, self.stats['documents'], time.monotonic() - self.started, current_url)
+        logging.info('PROGRESS site=%s completed=%s queued=%s documents=%s elapsed=%.1fs current=%s',
+                     self.host, done, queued, self.stats['documents'],
+                     time.monotonic() - self.started, current_url)
 
     def fail_row(self, row, message, status=None, started=None, retries=None, perf=None):
         order = self.db.execute('SELECT COALESCE(MAX(processed_order),0)+1 FROM pages').fetchone()[0]
@@ -1502,6 +1536,10 @@ class Collector:
                 await self.safe_close(pg)
             async with self._lock:
                 self.fail_row(row, f'Hard page timeout after {timeout}s', None, started)
+        except asyncio.CancelledError:
+            for pg in list(owned):
+                await self.safe_close(pg)
+            raise
         except Exception as exc:
             logging.exception('Page watchdog caught unexpected error for %s', row['normalized_url'])
             for pg in list(owned):
@@ -1569,7 +1607,7 @@ class Collector:
                 if interacted:
                     await self.settle(p, perf)
                 documents, _ = await self.timed_scan(p, ctx, u, depth, response_docs, perf)
-                # v3: expansion has its own time budget, well inside the watchdog.
+                # Expansion has its own time budget, well inside the watchdog.
                 deadline = time.monotonic() + self.cfg.expansion_budget_seconds
                 pdet, checked, limit = 0, 1, 0
                 if self.is_detail(u):
@@ -1614,6 +1652,8 @@ class Collector:
                 permanent_4xx = status is not None and 400 <= status < 500 and status not in (408, 429)
                 if permanent_4xx:
                     logging.info('Permanent HTTP %s; retries skipped for %s', status, u)
+                    break
+                if self.expired():
                     break
                 if attempt <= self.cfg.max_retries:
                     await asyncio.sleep(min(2 ** attempt, 6))
@@ -1723,6 +1763,7 @@ class Collector:
                 return
             self.progress(row['normalized_url'])
             await self.process_with_watchdog(ctx, row)
+            self.last_progress = time.monotonic()
             async with self._lock:
                 self.processed_since_export += 1
                 if self.processed_since_export >= self.cfg.export_checkpoint_pages:
@@ -1735,6 +1776,8 @@ class Collector:
             self.run_delay_seconds += time.perf_counter() - t0
 
     async def run(self):
+        self.started = time.monotonic()          # per-site clock starts here
+        self.last_progress = self.started
         self.recover_orphans()
         async with async_playwright() as pw:
             b = await pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage'])
@@ -1752,20 +1795,35 @@ class Collector:
                         pass
                 await ctx.route('**/*', block_heavy)
             try:
-                await self.load_robots(ctx)
+                try:
+                    await asyncio.wait_for(self.load_robots(ctx), timeout=30)
+                except asyncio.TimeoutError:
+                    logging.warning('robots.txt timed out: %s', self.seed)
                 if self.cfg.respect_robots_txt and self.robots.loaded and \
                         not self.robots.allowed(self.seed):
                     logging.warning('Seed URL is disallowed by robots.txt: %s', self.seed)
                 self.add(self.seed, None, 'Home', 0, 0, 'seed')
-                await self.seed_from_sitemap(ctx)
+                try:
+                    await asyncio.wait_for(self.seed_from_sitemap(ctx), timeout=120)
+                except asyncio.TimeoutError:
+                    logging.warning('Sitemap seeding stopped after 120s: %s', self.seed)
+                self.last_progress = time.monotonic()
                 workers = [asyncio.create_task(self.worker(ctx, f'w{i}'))
                            for i in range(self.cfg.concurrency)]
-                await asyncio.gather(*workers, return_exceptions=True)
-            finally:
+                hard = self.cfg.max_minutes_per_website * 60 + \
+                    self.cfg.page_attempt_timeout_seconds + 60
                 try:
-                    await ctx.close()
-                finally:
-                    await b.close()
+                    await asyncio.wait_for(asyncio.gather(*workers, return_exceptions=True),
+                                           timeout=hard)
+                except asyncio.TimeoutError:
+                    logging.error('Hard site timeout; workers cancelled: %s', self.seed)
+                    self.stop = True
+            finally:
+                for closer in (ctx.close, b.close):
+                    try:
+                        await asyncio.wait_for(closer(), timeout=20)
+                    except Exception:
+                        logging.warning('Browser close timed out for %s; continuing', self.seed)
 
     def close(self):
         try:
@@ -1775,7 +1833,7 @@ class Collector:
         self.db.close()
 
 
-def aggregate_outputs(root: Path, collectors):
+def aggregate_outputs(root, collectors):
     """Merge per-seed CSV files into the output root."""
     names = ('classified_pages.csv', 'pdf_pages.csv', 'html_pages.csv', 'failed_pages.csv',
              'document_evidence.csv', 'skipped_pages.csv', 'PERFORMANCE_REPORT.csv',
@@ -1872,7 +1930,7 @@ async def amain(a):
             signal.signal(sig, lambda *_: [setattr(x, 'stop', True) for x in collectors])
         except (ValueError, OSError):
             pass
-    semaphore = asyncio.Semaphore(2)
+    semaphore = asyncio.Semaphore(cfg.parallel_websites)
     failures = []
 
     async def run_one(c):
@@ -1922,33 +1980,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# --------------------------------------------------------------------------- #
-# CHANGELOG v2 -> v3  (anti-trap for news / articles / pagination)
-# --------------------------------------------------------------------------- #
-#  1. Section zero-yield: once section_probe_pages (12) pages under the same
-#     folder are processed with no document, the rest of that folder is SKIPPED
-#     at claim time (reason "Section zero-yield"). Document-hub URLs exempt.
-#  2. Priority 0 no longer bypasses family / query-variant limits; it gets
-#     3x / 2x allowance instead. Priority-0 children per page are capped.
-#  3. URL path wins over link text: /news/, /blog/, /press/ ... are ignored even
-#     when the headline contains ESG words (path_blocked()).
-#  4. split_label(): card heading is only borrowed for generic anchors
-#     ("Read more", "Download"). Pagination uses the anchor text only.
-#  5. Pagination: near_path sibling walk removed; path pagination widened
-#     (/page-2, /pg2, /p/2); "Next article/story/post" controls ignored;
-#     signature() no longer includes the URL; walk stops when a page adds no
-#     new links; detail pages (dated / numeric / long slug) skip pagination
-#     and load-more.
-#  6. expansion_budget_seconds (35s): pagination + load-more + year loops stop
-#     on time and keep partial results instead of hitting the 75s watchdog.
-#  7. filelike() (real file signals) is used for crawl policy and child
-#     filtering, so /documents/ and /downloads/ HTML hub pages are crawled.
-#     The broad DOC_HINT is still used to choose which links get a HEAD check.
-#  8. protected_branch narrowed to child-is-doc-hub or parent-is-doc-hub.
-#  9. Config: max_depth 12 -> 6, max_pagination_pages 12 -> 8, q / sort / view /
-#     tag / topic removed from kept query params, sitemap document-folder
-#     seeding off by default (sitemap_document_folders).
-# 10. Worker waits while other workers are still PROCESSING instead of exiting
-#     early on a momentarily empty queue.
-# Outputs, CSV names/columns, DB schema and CLI are unchanged.
