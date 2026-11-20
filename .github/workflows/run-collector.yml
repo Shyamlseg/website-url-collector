@@ -1,15 +1,15 @@
-name: Run Website URL Collector
+name: Run Website URL Collector (Sharded)
 
 on:
   workflow_dispatch:
     inputs:
       website_url:
-        description: Company homepage URL (blank uses seeds.csv)
+        description: Company URL(s), comma-separated; blank uses seeds.csv
         required: false
         default: ""
         type: string
       max_pages:
-        description: Maximum unique pages
+        description: Crawl page budget per company
         required: true
         default: "3000"
         type: string
@@ -20,67 +20,192 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: website-url-collector-results
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      shards: ${{ steps.split.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install dependencies for the seed reader
+        run: python -m pip install -r requirements.txt
+      - name: Deduplicate and divide company URLs
+        id: split
+        env:
+          INPUT_WEBSITES: ${{ inputs.website_url }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          from url_collector import Collector, seed_values
+
+          manual = os.environ.get('INPUT_WEBSITES', '').strip()
+          # Explicit input overrides seeds.csv rather than appending to it.
+          raw = seed_values([manual] if manual else [], None if manual else 'seeds.csv')
+          urls = []
+          seen = set()
+          for value in raw:
+              url = Collector.norm_seed(None, value)
+              parts = urlsplit(url)
+              if not parts.hostname or parts.username or parts.password:
+                  raise SystemExit(f'Invalid company URL: {value!r}')
+              # Treat http/https, www, and a trailing slash as duplicates for the same page.
+              key = (parts.hostname.removeprefix('www.'), parts.port,
+                     parts.path.rstrip('/'), parts.query, parts.fragment)
+              if key not in seen:
+                  seen.add(key)
+                  urls.append(url)
+          count = min(6, (len(urls) + 1) // 2)
+          shards = list(range(1, count + 1))
+          folder = Path('crawl-batches')
+          folder.mkdir()
+          for shard in shards:
+              batch = urls[shard - 1::count]
+              with (folder / f'shard-{shard}.csv').open('w', encoding='utf-8', newline='') as f:
+                  writer = csv.writer(f)
+                  writer.writerow(['website_url'])
+                  writer.writerows((url,) for url in batch)
+              print(f'Shard {shard}: {len(batch)} company URL(s)')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              print(f'shards={json.dumps(shards)}', file=f)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crawl-seed-batches
+          path: crawl-batches/
+          if-no-files-found: error
+
   collect:
+    name: Crawl shard ${{ matrix.shard }}
+    needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 180
-
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
     env:
-      WEBSITE_URL: ${{ inputs.website_url }}
+      WEBSITE_URL: ""
       MAX_PAGES: ${{ inputs.max_pages }}
       MAX_DEPTH: ${{ inputs.max_depth }}
       MAX_PAGINATION_PAGES: "2"
       MAX_LOAD_MORE_CLICKS: "1"
       MAX_RUNTIME_MINUTES: "170"
+      PARALLEL_WEBSITES: "2"
+      CONCURRENCY: "2"
       PYTHONUNBUFFERED: "1"
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+          persist-credentials: false
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
           cache: pip
-
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-
+        run: python -m pip install -r requirements.txt
       - name: Install Playwright Chromium and Linux dependencies
         run: python -m playwright install --with-deps chromium
-
-      - name: Run collector
-        run: python url_collector.py
-
-      - name: Ensure generated result files exist
-        if: ${{ always() }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: crawl-seed-batches
+          path: crawl-batches
+      - name: Run collector on this shard
+        env:
+          SHARD: ${{ matrix.shard }}
         shell: bash
         run: |
-          touch classified_pages.csv pdf_pages.csv html_pages.csv
-          touch failed_pages.csv document_evidence.csv crawler.db collector.log
-          touch PERFORMANCE_REPORT.csv PRIORITY_REPORT.csv
+          mkdir -p crawl-output
+          python url_collector.py --seeds "crawl-batches/shard-$SHARD.csv" \
+            --output-dir crawl-output --log crawl-output/collector.log
+      - name: Upload shard reports and per-company backups
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-shard-${{ matrix.shard }}
+          path: crawl-output/
+          if-no-files-found: warn
+          retention-days: 30
 
+  publish:
+    name: Merge and publish once
+    needs: [prepare, collect]
+    if: ${{ success() && github.ref_type == 'branch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install report dependencies
+        run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: collector-shard-*
+          path: shard-reports
+      - name: Merge the root CSVs, keeping one header per file
+        env:
+          EXPECTED_SHARDS: ${{ needs.prepare.outputs.shards }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          import os
+          from pathlib import Path
+
+          names = ('classified_pages.csv', 'pdf_pages.csv', 'html_pages.csv',
+                   'failed_pages.csv', 'document_evidence.csv', 'skipped_pages.csv',
+                   'PERFORMANCE_REPORT.csv', 'PRIORITY_REPORT.csv')
+          shards = json.loads(os.environ['EXPECTED_SHARDS'])
+          for name in names:
+              header = None
+              with open(name, 'w', encoding='utf-8-sig', newline='') as dest:
+                  writer = csv.writer(dest)
+                  for shard in shards:
+                      path = Path('shard-reports') / f'collector-shard-{shard}' / name
+                      with path.open(encoding='utf-8-sig', newline='') as f:
+                          reader = csv.reader(f)
+                          columns = next(reader)
+                          if header is None:
+                              header = columns
+                              writer.writerow(header)
+                          elif columns != header:
+                              raise SystemExit(f'CSV header mismatch: {path}')
+                          writer.writerows(row for row in reader if row and row[0] != 'TOTAL')
+          logs = (Path('shard-reports') / f'collector-shard-{shard}' / 'collector.log'
+                  for shard in shards)
+          with open('collector.log', 'w', encoding='utf-8') as dest:
+              for log in logs:
+                  dest.write(f'\n--- {log.parent.name} ---\n')
+                  dest.write(log.read_text(encoding='utf-8', errors='replace'))
+          PY
       - name: Update repository CSV tables
-        if: ${{ always() }}
         run: python repository_results.py
-
       - name: Create Actions run summary
-        if: ${{ always() }}
         run: python github_summary.py
-
       - name: Commit repository result tables
-        if: ${{ always() }}
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -92,8 +217,7 @@ jobs:
             git commit -m "Update website collector reports"
             git push
           fi
-
-      - name: Upload collector backup artifact
+      - name: Upload merged reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
@@ -103,8 +227,8 @@ jobs:
             pdf_pages.csv
             html_pages.csv
             failed_pages.csv
+            skipped_pages.csv
             document_evidence.csv
-            crawler.db
             collector.log
             RUN_SUMMARY.csv
             PDF_PAGES.csv
