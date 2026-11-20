@@ -5,11 +5,20 @@ from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
+import aiohttp
+try:
+    import tldextract
+except ImportError:
+    tldextract = None  # Without the suffix list, limit crawling to explicitly allowed hosts.
 from playwright.async_api import async_playwright, Error as PWError, TimeoutError as PWTimeout
 
 # --------------------------------------------------------------------------- #
 # Static vocabularies
 # --------------------------------------------------------------------------- #
+DOMAIN_PARTS = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True) if tldextract else None
+PDF_LABEL = re.compile(r'\b(?:pdf|download)\b', re.I)
+OPAQUE_DOWNLOAD = re.compile(r'/(?:static-files|file|download(?:ing)?\.aspx|(?:get|serve|view)[-_]?file|attachment)(?:/|$)', re.I)
+
 DOC_EXT = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf', '.odt', '.ods', '.odp'}
 ASSET_EXT = {'.css', '.js', '.mjs', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.avif', '.ico',
              '.woff', '.woff2', '.ttf', '.eot', '.mp4', '.webm', '.mp3', '.wav', '.zip', '.rar', '.7z',
@@ -275,7 +284,7 @@ class Config:
     follow_same_family_links_from_detail_pages: bool = False
     prioritize_document_likely_pages: bool = True
     # ---- query handling ----
-    query_parameter_mode: str = 'whitelist'         # 'whitelist' or 'blacklist'
+    query_parameter_mode: str = 'blacklist'         # 'whitelist' or 'blacklist'
     keep_meaningful_query_parameters: tuple = (
         'year', 'page', 'paged', 'p', 'offset', 'start', 'category', 'cat', 'type', 'section',
         'id', 'doc', 'document', 'file', 'lang', 'locale', 'tab')
@@ -289,9 +298,12 @@ class Config:
     max_sitemap_urls: int = 5000
     max_neutral_sitemap_urls: int = 150
     # ---- runtime ----
+    pdf_probe_concurrency: int = 4
+    max_pdf_probes_per_state: int = 120
+    coverage_mode: bool = True
     concurrency: int = 4
     block_heavy_resources: bool = True
-    export_checkpoint_pages: int = 25
+    export_checkpoint_pages: int = 0  # SQLite checkpoints continuously; CSV export at completion
     recover_orphaned_pages: bool = True
     user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/5.0)'
     robots_agent: str = 'websiteurlcollector'
@@ -457,8 +469,8 @@ class Collector:
         self.cfg = cfg
         self.seed = self.norm_seed(seed)
         self.host = (urlsplit(self.seed).hostname or '').lower()
-        parts = self.host.split('.')
-        self.base = '.'.join(parts[-2:]) if len(parts) > 1 else self.host
+        domain = DOMAIN_PARTS(self.host) if DOMAIN_PARTS else None
+        self.base = '.'.join((domain.domain, domain.suffix)) if domain and domain.suffix else self.host
         seed_path = urlsplit(self.seed).path or '/'
         m = re.match(r'^/([a-z]{2}(?:-[a-z]{2})?)(?:/|$)', seed_path, re.I)
         self.language_prefix = ('/' + m.group(1).lower() + '/') if m else None
@@ -466,6 +478,13 @@ class Collector:
         self.out.mkdir(parents=True, exist_ok=True)
         self.processed_since_export = 0
         self.document_cache = {}
+        self.document_checks = {}
+        self.probe_backoff = {}
+        self.probe_slots = asyncio.Semaphore(max(1, cfg.pdf_probe_concurrency))
+        self.origin_robots = {}
+        self.robots_tasks = {}
+        self.http = None
+        self.sitemap_running = False
         self.robots = Robots(cfg.robots_agent)
         self.started = time.monotonic()
         self.stop = False
@@ -495,7 +514,7 @@ class Collector:
         p = urlsplit(u)
         if not p.hostname:
             raise ValueError(f'Valid website URL required, got {u!r}')
-        return urlunsplit((p.scheme.lower(), p.netloc.lower(), p.path or '/', p.query, ''))
+        return urlunsplit((p.scheme.lower(), p.netloc.lower(), p.path or '/', p.query, p.fragment))
 
     def norm(self, u, base=None, parent_view=False):
         """Canonical form used for de-duplication only (never for opening).
@@ -509,24 +528,23 @@ class Collector:
             port = p.port
             net = host if port is None or (scheme == 'http' and port == 80) or \
                 (scheme == 'https' and port == 443) else f'{host}:{port}'
-            path = re.sub('/+', '/', p.path or '/')
-            tail = path.rsplit('/', 1)[-1]
-            if path != '/' and not path.endswith('/') and '.' not in tail:
-                path += '/'
+            path = p.path or '/'
             remove = {x.lower() for x in self.cfg.remove_query_parameters}
             keep = {x.lower() for x in self.cfg.keep_meaningful_query_parameters}
+            # Preserve spelling, encoding and order of query values, including repeated keys.
             q = []
-            for k, v in parse_qsl(p.query, keep_blank_values=True):
-                kl = k.lower()
-                if kl in remove or kl.startswith('utm_'):
-                    continue
-                if parent_view and kl in PKEYS:
+            for item in p.query.split('&') if p.query else ():
+                key = parse_qsl(item.partition('=')[0] + '=', keep_blank_values=True)
+                kl = key[0][0].lower() if key else ''
+                if kl in remove or kl.startswith('utm_') or (parent_view and kl in PKEYS):
                     continue
                 if self.cfg.query_parameter_mode == 'whitelist' and keep and kl not in keep:
                     continue
-                q.append((k, v))
-            q.sort(key=lambda x: (x[0].lower(), x[1]))
-            return urlunsplit((scheme, net, path, urlencode(q, doseq=True), ''))
+                q.append(item)
+            # Leave normal in-page anchors out of the dedup key, not the fetch URL.
+            # Preserve common SPA hash routes, pagination and filter states.
+            frag = p.fragment if (p.fragment.startswith(('/', '!', '?')) or '=' in p.fragment) else ''
+            return urlunsplit((scheme, net, path, '&'.join(q), frag))
         except (ValueError, UnicodeError):
             return None
 
@@ -538,7 +556,7 @@ class Collector:
 
     def doclike(self, u):
         """Broad: worth a HEAD check (includes /documents/ style folders)."""
-        if ext(u) in DOC_EXT or DOC_HINT.search(u or ''):
+        if ext(u) in DOC_EXT or DOC_HINT.search(u or '') or OPAQUE_DOWNLOAD.search(urlsplit(u).path):
             return True
         for k, v in parse_qsl(urlsplit(u or '').query, keep_blank_values=True):
             if k.lower() in VIEWER_PARAMS and v and (ext(v) in DOC_EXT or DOC_HINT.search(v)):
@@ -571,7 +589,7 @@ class Collector:
         return not match_vocab(canon(path), V_DOC_HUB)
 
     def policy(self, u):
-        if not self.internal(u):
+        if urlsplit(u).username or urlsplit(u).password or not self.internal(u):
             return False, 'external'
         path = (urlsplit(u).path or '/').lower()
         target_host = (urlsplit(u).hostname or '').lower()
@@ -584,7 +602,7 @@ class Collector:
             return False, 'document'
         if UNSAFE.search(urlsplit(u).path or ''):
             return False, 'unsafe route'
-        if self.cfg.respect_robots_txt and self.robots.loaded and not self.robots.allowed(u):
+        if self.cfg.respect_robots_txt and self.origin(u) in self.origin_robots and not self.origin_robots[self.origin(u)].allowed(u):
             return False, 'blocked by robots.txt'
         return True, ''
 
@@ -816,7 +834,7 @@ class Collector:
         if not n:
             return False
         # v5: keep the real absolute URL (original slash / query) for opening.
-        open_url = strip_fragment(urljoin(parent or self.seed, (u or '').strip()))
+        open_url = urljoin(parent or self.seed, (u or '').strip())
         text = (text or '')[:500]
         strong, negative, gateway, dochub = self.signals(n, text)
         if priority is None:
@@ -834,10 +852,10 @@ class Collector:
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                                 gateway, dochub, 'IGNORED', 'NEGATIVE_PATH_OR_TEXT')
             return False
-        ok, why = self.policy(n)
+        ok, why = self.policy(open_url)
         if not ok and why == 'blocked by robots.txt':
             self.increment_counter('robots_blocked')
-        if self.live_count() >= self.cfg.max_pages_per_website:
+        if self.live_count() >= self.cfg.max_pages_per_website * (4 if self.cfg.coverage_mode else 1):
             self.page_limit = True
             self.increment_counter('after_page_limit')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
@@ -894,13 +912,13 @@ class Collector:
             for _ in range(500):  # bounded skip loop
                 row = self.db.execute(
                     "SELECT * FROM pages WHERE status='DISCOVERED' "
-                    "ORDER BY priority ASC, depth ASC, discovered_order ASC LIMIT 1").fetchone()
+                    "ORDER BY CASE WHEN depth=0 THEN 0 ELSE 1 END, priority ASC, depth ASC, discovered_order ASC LIMIT 1").fetchone()
                 if not row:
                     break
                 url = row['normalized_url']
                 strong, negative, gateway, dochub = self.signals(url, row['link_text'] or '')
                 dead = None
-                if row['depth'] > 0 and not dochub:
+                if row['depth'] > 0 and not dochub and not self.cfg.coverage_mode:
                     dead = self.section_is_dead(url)
                 if dead:
                     self.db.execute(
@@ -1003,20 +1021,41 @@ class Collector:
             self.increment_counter('sitemap_seeded', added)
             logging.info('Sitemap seeding added %s URL(s) from %s sitemap file(s)', added, fetched)
 
-    async def load_robots(self, ctx):
-        if not (self.cfg.respect_robots_txt or self.cfg.use_sitemap):
-            return
-        origin = '{0.scheme}://{0.netloc}'.format(urlsplit(self.seed))
+    @staticmethod
+    def origin(u):
+        p = urlsplit(u)
+        return f'{p.scheme}://{p.netloc.lower()}'
+
+    async def fetch_robots(self, origin):
+        rules = Robots(self.cfg.robots_agent)
         try:
-            r = await ctx.request.get(origin + '/robots.txt', timeout=12000, fail_on_status_code=False)
-            if r.status < 400:
-                self.robots.parse(await r.text())
-                logging.info('robots.txt loaded: %s rule(s), %s sitemap hint(s)',
-                             len(self.robots.rules), len(self.robots.sitemaps))
-            else:
-                logging.info('robots.txt not available (HTTP %s); no restrictions applied', r.status)
-        except (PWError, PWTimeout, UnicodeDecodeError) as exc:
-            logging.info('robots.txt fetch failed (%s); no restrictions applied', type(exc).__name__)
+            # Avoid an unbounded robots download and don't automatically follow redirects.
+            async with self.http.request('GET', origin + '/robots.txt', allow_redirects=False, timeout=aiohttp.ClientTimeout(total=5)) as r:
+                if 200 <= r.status < 300:
+                    body = bytearray()
+                    async for piece in r.content.iter_chunked(8192):
+                        body.extend(piece)
+                        if len(body) >= 512000:
+                            break
+                    rules.parse(body.decode('utf-8', 'replace'))
+                elif r.status not in (404, 410):
+                    rules.parse('User-agent: *\nDisallow: /')
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+            rules.parse('User-agent: *\nDisallow: /')
+        self.origin_robots[origin] = rules
+        return rules
+
+    async def robots_for(self, u):
+        origin = self.origin(u)
+        if origin in self.origin_robots:
+            return self.origin_robots[origin]
+        if origin not in self.robots_tasks:
+            self.robots_tasks[origin] = asyncio.create_task(self.fetch_robots(origin))
+        return await asyncio.shield(self.robots_tasks[origin])
+
+    async def load_robots(self, ctx):
+        if self.cfg.respect_robots_txt or self.cfg.use_sitemap:
+            self.robots = await self.robots_for(self.seed)
 
     # ---------------- timing wrappers ----------------
     async def settle(self, p, perf=None):
@@ -1062,7 +1101,7 @@ class Collector:
             pass
         return False
 
-    async def reveal(self, p):
+    async def reveal(self, p, on_change=None):
         """Reveal bounded navigation controls, then document-section controls. Buttons and
         summaries only are clicked; ordinary anchors are never activated."""
         clicked = False
@@ -1108,16 +1147,16 @@ class Collector:
                             continue
                     if candidate is None:
                         break
-                    before = len(await self.links(p))
                     await candidate.click(timeout=1200)
                     clicked_keys.add(key)
                     click_count += 1
                     clicked = True
                     await p.wait_for_timeout(250)
-                    after = len(await self.links(p))
+                    if on_change is not None:
+                        await self.settle(p)
+                        await on_change('reveal:' + label[:120])
                     self.increment_counter('esg_reveals')
-                    logging.info('Navigation revealed label=%s new_links=%s page=%s',
-                                 label, max(0, after - before), p.url)
+                    logging.info('Navigation revealed label=%s page=%s', label, p.url)
                 except PWError:
                     break
         return clicked
@@ -1163,7 +1202,7 @@ class Collector:
                  "const v=[e.getAttribute('onclick'),e.getAttribute('data-href'),e.getAttribute('data-url'),"
                  "e.getAttribute('data-file'),e.getAttribute('data-pdf'),e.getAttribute('data-src'),"
                  "e.getAttribute('data-link'),e.getAttribute('data-download'),e.getAttribute('value')]"
-                 ".filter(Boolean).join(' ');"
+                 ".filter(Boolean);"
                  "return [v,(e.innerText||e.textContent||e.getAttribute('aria-label')||'').trim().slice(0,300)]})"
                  % blocked)
         embeds = ("els=>els.map(e=>[e.src||e.data||'',(e.getAttribute('title')||e.getAttribute('aria-label')"
@@ -1178,7 +1217,11 @@ class Collector:
             except PWError:
                 vals = []
             try:
-                vals += list(await f.locator('embed[src],object[data],iframe[src]').evaluate_all(embeds))
+                embed_vals = await f.locator('embed[src],object[data],iframe[src]').evaluate_all(embeds)
+                for u, t in embed_vals:
+                    if u not in seen:
+                        out.append((u, t, src + '_embed'))
+                        seen.add(u)
             except PWError:
                 pass
             for u, t in vals:
@@ -1192,41 +1235,83 @@ class Collector:
             except PWError:
                 attr_vals = []
             base = f.url or p.url
-            for blob, t in attr_vals:
-                for m in ATTR_DOC_RX.finditer(blob or ''):
-                    u = urljoin(base, (m.group(2) or m.group(3) or '').strip())
-                    if u not in seen and u.startswith('http'):
-                        seen.add(u)
-                        out.append((u, (t or '')[:500], src + '_attribute'))
+            for values, t in attr_vals:
+                for blob in values:
+                    raw = blob.strip()
+                    urls = [m.group(2) or m.group(3) for m in ATTR_DOC_RX.finditer(raw)]
+                    if (raw.startswith(('https://', 'http://', '/', './', '../')) and not re.search(r'[\s<>\"\']', raw)):
+                        urls.append(raw)
+                    for raw_url in urls:
+                        u = urljoin(base, raw_url.strip())
+                        if u not in seen and u.startswith(('http://', 'https://')):
+                            seen.add(u)
+                            out.append((u, (t or '')[:500], src + '_attribute'))
         return out
 
+    async def probe_pdf(self, u):
+        async with self.probe_slots:
+            target = strip_fragment(u)
+            # Status, MIME and content signature are evidence; suffixes aren't.
+            for method in ('HEAD', 'GET'):
+                candidate = target
+                for _ in range(6):
+                    p = urlsplit(candidate)
+                    if p.scheme not in ('http', 'https') or not p.hostname or p.username or p.password:
+                        return None
+                    if time.monotonic() < self.probe_backoff.get(self.origin(candidate), 0):
+                        return None
+                    if self.cfg.respect_robots_txt and not (await self.robots_for(candidate)).allowed(candidate):
+                        return None
+                    try:
+                        async with self.http.request(method, candidate,
+                            headers={'Range': 'bytes=0-1023', 'Accept-Encoding': 'identity'} if method == 'GET' else {},
+                            allow_redirects=False, timeout=aiohttp.ClientTimeout(total=max(0.5, self.cfg.document_head_timeout_seconds)),
+                        ) as r:
+                            status = r.status
+                            if status in (301, 302, 303, 307, 308) and r.headers.get('Location'):
+                                candidate = urljoin(candidate, r.headers['Location'])
+                                continue
+                            if status == 429:
+                                self.probe_backoff[self.origin(candidate)] = time.monotonic() + 30
+                                logging.warning('Rate limited; deferring PDF check: %s', candidate)
+                                return None
+                            if status >= 500 and status != 501:
+                                return None
+                            if 200 <= status < 300 and status != 204:
+                                mime = r.headers.get('Content-Type', '').partition(';')[0].strip().lower()
+                                if mime == 'application/pdf':
+                                    return True
+                                if method == 'GET':
+                                    try:
+                                        prefix = await r.content.readexactly(1024)
+                                    except asyncio.IncompleteReadError as exc:
+                                        prefix = exc.partial
+                                    return b'%PDF-' in prefix
+                                if mime.startswith(('text/html', 'application/xhtml')) and not self.doclike(u):
+                                    return False
+                            if method == 'GET':
+                                return False if status in (404, 410) else None
+                            break
+                    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+                        return None
+            return None
+
     async def confirm(self, ctx, u):
-        """HEAD-verify a candidate; ranged GET fallback on 403/405/501."""
-        if u in self.document_cache:
-            return self.document_cache[u]
-        if ext(u) in DOC_EXT:
-            self.document_cache[u] = True
-            return True
-        found = False
-        timeout = self.cfg.document_head_timeout_seconds * 1000
+        key = strip_fragment(u)
+        if key in self.document_cache:
+            return self.document_cache[key]
+        task = self.document_checks.get(key)
+        if task is None:
+            task = asyncio.create_task(self.probe_pdf(key))
+            self.document_checks[key] = task
         try:
-            r = await ctx.request.head(u, timeout=timeout, fail_on_status_code=False)
-            headers = r.headers
-            if r.status in (403, 405, 501):
-                r = await ctx.request.get(u, timeout=timeout, fail_on_status_code=False,
-                                          headers={'Range': 'bytes=0-1023'})
-                headers = r.headers
-            ct = (headers.get('content-type') or '').lower()
-            cd = (headers.get('content-disposition') or '').lower()
-            if 'application/octet-stream' in ct:
-                found = bool(DOC_FILE_HINT.search(u) or ext(u) in DOC_EXT or 'attachment' in cd)
-            else:
-                found = any(x in ct for x in DOC_MIME if x != 'application/octet-stream') or \
-                    'attachment' in cd
-        except (PWError, PWTimeout):
-            pass
-        self.document_cache[u] = found
-        return found
+            result = await asyncio.shield(task)
+            if result is not None:
+                self.document_cache[key] = result
+            return result is True
+        finally:
+            if task.done() and self.document_checks.get(key) is task:
+                self.document_checks.pop(key, None)
 
     def is_pagination(self, candidate, parent, text=''):
         anchor, _ = split_label(text)
@@ -1256,16 +1341,30 @@ class Collector:
         # Network responses are audit-only; DOM evidence is required.
         if response_docs:
             self.increment_counter('unconfirmed_network_documents', len(response_docs))
-        # 1) Content links + embedded viewers + onclick/data attributes.
+        # 1) Collect first; then probe modest batches and share in-flight checks.
+        probes = []
         for u, text, src in await self.content_document_links(p):
-            if len(documents) >= cap:
-                break
             target = self.viewer_target(u) or u
-            if target in seen_docs:
+            if target in seen_docs or urlsplit(target).scheme not in ('http', 'https'):
                 continue
-            if self.doclike(target) and await self.confirm(ctx, target):
+            if self.doclike(target) or PDF_LABEL.search(text or '') or src.endswith(('_embed', '_attribute')):
                 seen_docs.add(target)
-                documents.append((target, src if target == u else src + '_embedded_viewer', text))
+                rank = 0 if ext(target) == '.pdf' else 1 if self.doclike(target) else 2
+                probes.append((rank, target, src if target == u else src + '_embedded_viewer', text))
+        probes.sort(key=lambda x: x[0])
+        limit = max(1, self.cfg.max_pdf_probes_per_state)
+        if len(probes) > limit:
+            self.increment_counter('pdf_probe_limit', len(probes) - limit)
+            logging.info('PDF probe limit: %s of %s candidates on %s', limit, len(probes), parent)
+        probes = probes[:limit]
+        batch = max(1, self.cfg.pdf_probe_concurrency)
+        for i in range(0, len(probes), batch):
+            group = probes[i:i + batch]
+            results = await asyncio.gather(*(self.confirm(ctx, x[1]) for x in group))
+            documents.extend((u, src, text) for (_, u, src, text), yes in zip(group, results) if yes)
+            if len(documents) >= cap:
+                documents = documents[:cap]
+                break
         for u, src, text in documents[:20]:
             logging.info('Document evidence source=%s page=%s document=%s', src, parent, u)
         if len(documents) > 20:
@@ -1278,19 +1377,27 @@ class Collector:
         _, _, _, parent_dochub = self.signals(parent, '')
         for child, raw_text, _ in all_links:
             n = self.norm(child, parent)
-            if not n or n in seen or self.filelike(n) or self.is_pagination(n, parent, raw_text):
+            if not n or n in seen or not self.internal(child):
                 continue
             seen.add(n)
+            if strip_fragment(child) in self.document_cache and self.document_cache[strip_fragment(child)]:
+                continue
+            if not self.policy(child)[0] or (depth >= self.cfg.max_depth and not self.is_pagination(child, parent, raw_text)):
+                continue
+            if self.db.execute('SELECT 1 FROM pages WHERE normalized_url=?', (n,)).fetchone():
+                continue
             _, text = split_label(raw_text)
             strong, negative, gateway, dochub = self.signals(n, text)
             rank = self.priority(n, text)
+            if self.is_pagination(child, parent, raw_text):
+                rank = min(rank, 1)
             if self.path_blocked(n, text):
                 self.increment_counter('negative')
                 self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
                                     gateway, dochub, 'IGNORED', 'NEGATIVE_PATH_OR_TEXT')
                 continue
             protected_branch = dochub or parent_dochub
-            if not protected_branch and parent_is_detail and \
+            if not self.cfg.coverage_mode and not protected_branch and parent_is_detail and \
                     not self.cfg.follow_same_family_links_from_detail_pages and \
                     self.url_family(n) == parent_family:
                 self.increment_counter('same_family')
@@ -1305,8 +1412,16 @@ class Collector:
         # pages); only low-priority news / blog / events links have their own cap.
         normal = [x for x in candidates if x[0] < 8]
         low = [x for x in candidates if x[0] >= 8][:self.cfg.max_low_priority_children_per_page]
-        selected = normal[:budget] + low
-        for rank, n, text, child in selected:
+        selected = []
+        accepted = 0
+        for rank, n, text, child in normal:
+            if accepted >= budget:
+                break
+            selected.append((rank, n, text, child))
+            child_depth = depth if self.is_pagination(child, parent, text) else depth + 1
+            accepted += self.add(child, parent, text, child_depth, rank)
+        for rank, n, text, child in low:
+            selected.append((rank, n, text, child))
             self.add(child, parent, text, depth + 1, rank)
         selected_set = {x[1] for x in selected}
         ignored_candidates = [x for x in candidates if x[1] not in selected_set]
@@ -1385,7 +1500,7 @@ class Collector:
                 documents.append(d)
                 have.add(d[0])
 
-    async def crawl_pagination(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None):
+    async def crawl_pagination(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None, on_change=None):
         """Bounded pagination walk. Brakes: page ceiling, visited set, DOM
         signature set, no-new-links exit, no-candidate exit, time budget."""
         detected = 0
@@ -1409,16 +1524,7 @@ class Collector:
             moved = False
             if cands:
                 detected = 1
-                target = cands[0][0]
-                visited.add(target)
-                try:
-                    await self.timed_goto(p, target, perf)
-                    await self.settle(p, perf)
-                    moved = True
-                    current = target
-                except (PWError, PWTimeout):
-                    logging.info('Pagination navigation failed: %s', target)
-                    break
+                break  # scan() queued the distinct href URLs with their original query strings.
             else:
                 clicked = False
                 try:
@@ -1431,6 +1537,9 @@ class Collector:
                             text = ((await el.inner_text(timeout=500)) or
                                     await el.get_attribute('aria-label') or '').strip()
                             if not await el.is_visible():
+                                continue
+                            href = await el.get_attribute('href')
+                            if href and not href.startswith(('#', 'javascript:')):
                                 continue
                             if await el.get_attribute('aria-disabled') == 'true':
                                 continue
@@ -1471,13 +1580,10 @@ class Collector:
             signatures.add(sig)
             checked += 1
             self.stats['pagination_states'] += 1
-            docs, links2 = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-            self.merge_docs(documents, docs)
+            _, links2 = await on_change('pagination:' + str(checked)) if on_change else ([], await self.links(p))
             new_links = {u for u, _, _ in links2} - seen_links
             seen_links |= new_links
-            if not new_links:
-                logging.info('Pagination produced no new links; stopping walk at %s', current)
-                break
+            # Document-only changes can be meaningful even if navigation links are unchanged.
             if self.next_page_candidates(links2, current, visited):
                 limit_reached = 1
         if detected:
@@ -1492,7 +1598,7 @@ class Collector:
                 pass
         return detected, checked, limit_reached
 
-    async def crawl_load_more(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None):
+    async def crawl_load_more(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None, on_change=None):
         """Bounded load-more clicking: click ceiling + signature set + time budget."""
         if not self.cfg.max_load_more_clicks:
             return
@@ -1515,10 +1621,10 @@ class Collector:
                 return
             signatures.add(sig)
             self.stats['load_more'] += 1
-            docs, _ = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-            self.merge_docs(documents, docs)
+            if on_change:
+                await on_change('load_more:' + str(len(signatures) - 1))
 
-    async def crawl_year_options(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None):
+    async def crawl_year_options(self, p, ctx, base_url, depth, response_docs, documents, perf, deadline=None, on_change=None):
         """Bounded year-dropdown select-and-rescan loop."""
         if not self.cfg.max_year_options:
             return
@@ -1559,8 +1665,8 @@ class Collector:
                 switched += 1
                 self.stats['year_switches'] += 1
                 logging.info('Year option switched to %s on %s', label or value, base_url)
-                docs, _ = await self.timed_scan(p, ctx, base_url, depth, response_docs, perf)
-                self.merge_docs(documents, docs)
+                if on_change:
+                    await on_change('year:' + (label or value)[:120])
             return
 
     # ---------------- page processing ----------------
@@ -1618,8 +1724,6 @@ class Collector:
         # v5: open the URL exactly as the site linked it; the normalized form
         # (added slash, filtered query) is only a fallback.
         targets = [row['page_url'] or u]
-        if u not in targets:
-            targets.append(u)
         target_idx = 0
         depth = row['depth']
         self.stats['max_depth'] = max(depth, self.stats['max_depth'])
@@ -1666,23 +1770,40 @@ class Collector:
                     else:
                         raise RuntimeError(f'Unexpected content type {ct}')
                 await self.settle(p, perf)
+                if not self.internal(p.url):
+                    raise RuntimeError(f'Redirected outside allowed hosts: {p.url}')
+                source_url = p.url
+                evidence = {}
+
+                async def capture(state='initial'):
+                    actual = p.url
+                    if not self.internal(actual) or (self.cfg.respect_robots_txt and
+                            not (await self.robots_for(actual)).allowed(actual)):
+                        return [], []
+                    docs, links = await self.timed_scan(p, ctx, actual, depth, response_docs, perf)
+                    for doc_url, kind, label in docs:
+                        evidence.setdefault((actual, doc_url), (kind if state == 'initial' else kind + ':' + state, label))
+                    return docs, links
+
+                await capture()
+                scan_before = perf['scan']
                 t0 = time.perf_counter()
-                interacted = await self.cookie(p)
-                interacted = (await self.reveal(p)) or interacted
-                perf['interaction'] += time.perf_counter() - t0
-                if interacted:
+                if await self.cookie(p):
                     await self.settle(p, perf)
-                documents, _ = await self.timed_scan(p, ctx, u, depth, response_docs, perf)
-                # Expansion has its own time budget, well inside the watchdog.
+                    await capture('after_consent')
+                await self.reveal(p, capture)
+                perf['interaction'] += max(0, time.perf_counter() - t0 - (perf['scan'] - scan_before))
                 deadline = time.monotonic() + self.cfg.expansion_budget_seconds
                 pdet, checked, limit = 0, 1, 0
                 if self.is_detail(u):
                     self.expansion['detail_pagination_skipped'] += 1
                 else:
                     pdet, checked, limit = await self.crawl_pagination(
-                        p, ctx, open_url, depth, response_docs, documents, perf, deadline)
-                    await self.crawl_load_more(p, ctx, u, depth, response_docs, documents, perf, deadline)
-                await self.crawl_year_options(p, ctx, u, depth, response_docs, documents, perf, deadline)
+                        p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                    await self.crawl_load_more(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                await self.crawl_year_options(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                documents = [(doc, src, label) for (actual, doc), (src, label) in evidence.items()
+                             if actual == source_url]
                 found = bool(documents)
                 page_type = 'PDF' if found else 'HTML'
                 async with self._lock:
@@ -1697,12 +1818,12 @@ class Collector:
                         (page_type, int(found), len(documents), status, pdet, checked, limit,
                          documents[0][0] if documents else None,
                          documents[0][1] if documents else None, order, now(), row['id']))
-                    for doc_url, doc_src, doc_text in documents:
+                    for (actual, doc_url), (doc_src, doc_text) in evidence.items():
                         self.db.execute(
                             'INSERT OR IGNORE INTO document_evidence(source_url,document_url,'
                             'detection_source,link_text,detected_at) VALUES(?,?,?,?,?)',
-                            (u, doc_url, doc_src, (doc_text or '')[:500], now()))
-                    self.stats['documents'] += len(documents)
+                            (actual, doc_url, doc_src, (doc_text or '')[:500], now()))
+                    self.stats['documents'] += len(evidence)
                     self.record_perf(u, page_type, status, page_started, attempt - 1, perf)
                 logging.info('Classified %s %s documents=%s', page_type, open_url, len(documents))
                 await self.safe_close(p)
@@ -1752,7 +1873,8 @@ class Collector:
             w.writeheader()
             w.writerows(dict(r) for r in rows)
         dump('pdf_pages.csv', ['source_url', 'document_count'],
-             [[r['normalized_url'], r['document_count']] for r in rows if r['page_type'] == 'PDF'])
+             self.db.execute('SELECT source_url, COUNT(DISTINCT document_url) FROM document_evidence '
+                             'GROUP BY source_url ORDER BY source_url').fetchall())
         dump('html_pages.csv', ['source_url', 'parent_url', 'depth'],
              [[r['normalized_url'], r['parent_url'], r['depth']] for r in rows if r['page_type'] == 'HTML'])
         dump('failed_pages.csv', ['source_url', 'parent_url', 'depth', 'http_status', 'error_message'],
@@ -1828,7 +1950,7 @@ class Collector:
                 async with self._lock:
                     busy = self.db.execute(
                         "SELECT COUNT(*) FROM pages WHERE status='PROCESSING'").fetchone()[0]
-                if busy:
+                if busy or self.sitemap_running:
                     await asyncio.sleep(1.0)
                     continue
                 return
@@ -1837,7 +1959,7 @@ class Collector:
             self.last_progress = time.monotonic()
             async with self._lock:
                 self.processed_since_export += 1
-                if self.processed_since_export >= self.cfg.export_checkpoint_pages:
+                if self.cfg.export_checkpoint_pages > 0 and self.processed_since_export >= self.cfg.export_checkpoint_pages:
                     t0 = time.perf_counter()
                     self.export()
                     self.run_export_seconds += time.perf_counter() - t0
@@ -1850,21 +1972,29 @@ class Collector:
         self.started = time.monotonic()          # per-site clock starts here
         self.last_progress = self.started
         self.recover_orphans()
-        async with async_playwright() as pw:
-            b = await pw.chromium.launch(headless=True, args=['--disable-dev-shm-usage'])
-            ctx = await b.new_context(ignore_https_errors=True, accept_downloads=False,
+        async with aiohttp.ClientSession(headers={'User-Agent': self.cfg.user_agent}, trust_env=True) as self.http, async_playwright() as pw:
+            b = await pw.chromium.launch(headless=True, executable_path=os.getenv('CHROMIUM_EXECUTABLE') or None, args=['--disable-dev-shm-usage'])
+            ctx = await b.new_context(ignore_https_errors=False, accept_downloads=False,
                                       user_agent=self.cfg.user_agent)
             ctx.set_default_timeout(self.cfg.page_timeout_seconds * 1000)
-            if self.cfg.block_heavy_resources:
-                async def block_heavy(route):
-                    try:
-                        if route.request.resource_type in ('image', 'media', 'font'):
+            async def guard_requests(route):
+                try:
+                    req = route.request
+                    if req.is_navigation_request() and req.frame.parent_frame is None:
+                        if not self.internal(req.url) or (self.cfg.respect_robots_txt and
+                                not (await self.robots_for(req.url)).allowed(req.url)):
                             await route.abort()
-                        else:
-                            await route.continue_()
+                            return
+                    if self.cfg.block_heavy_resources and req.resource_type in ('image', 'media', 'font'):
+                        await route.abort()
+                    else:
+                        await route.continue_()
+                except PWError:
+                    try:
+                        await route.abort()
                     except PWError:
                         pass
-                await ctx.route('**/*', block_heavy)
+            await ctx.route('**/*', guard_requests)
             try:
                 try:
                     await asyncio.wait_for(self.load_robots(ctx), timeout=30)
@@ -1874,22 +2004,37 @@ class Collector:
                         not self.robots.allowed(self.seed):
                     logging.warning('Seed URL is disallowed by robots.txt: %s', self.seed)
                 self.add(self.seed, None, 'Home', 0, 0, 'seed')
-                try:
-                    await asyncio.wait_for(self.seed_from_sitemap(ctx), timeout=120)
-                except asyncio.TimeoutError:
-                    logging.warning('Sitemap seeding stopped after 120s: %s', self.seed)
+                async def discover_sitemaps():
+                    try:
+                        await asyncio.wait_for(self.seed_from_sitemap(ctx), timeout=120)
+                    except asyncio.TimeoutError:
+                        logging.warning('Sitemap seeding stopped after 120s: %s', self.seed)
+                    finally:
+                        self.sitemap_running = False
                 self.last_progress = time.monotonic()
+                self.sitemap_running = self.cfg.use_sitemap
+                sitemap = asyncio.create_task(discover_sitemaps())
                 workers = [asyncio.create_task(self.worker(ctx, f'w{i}'))
                            for i in range(self.cfg.concurrency)]
                 hard = self.cfg.max_minutes_per_website * 60 + \
                     self.cfg.page_attempt_timeout_seconds + 60
                 try:
-                    await asyncio.wait_for(asyncio.gather(*workers, return_exceptions=True),
-                                           timeout=hard)
+                    results = await asyncio.wait_for(asyncio.gather(*workers, return_exceptions=True), timeout=hard)
+                    for result in results:
+                        if isinstance(result, Exception):
+                            raise result
                 except asyncio.TimeoutError:
                     logging.error('Hard site timeout; workers cancelled: %s', self.seed)
                     self.stop = True
             finally:
+                pending = list(self.document_checks.values()) + list(self.robots_tasks.values())
+                if 'sitemap' in locals():
+                    pending.append(sitemap)
+                for task in pending:
+                    if not task.done():
+                        task.cancel()
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
                 for closer in (ctx.close, b.close):
                     try:
                         await asyncio.wait_for(closer(), timeout=20)
@@ -2026,7 +2171,7 @@ async def amain(a):
 
 
 def main():
-    p = argparse.ArgumentParser(description='Collect website pages that expose PDF/Office documents.')
+    p = argparse.ArgumentParser(description='Collect website pages that expose verified PDFs.')
     p.add_argument('--website-url', action='append', default=None,
                    help='Seed URL (repeatable, or comma-separated).')
     p.add_argument('--config', default='collector_config.json')
