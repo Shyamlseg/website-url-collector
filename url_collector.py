@@ -278,7 +278,7 @@ class Config:
     allowed_hosts: tuple = ()
     # ---- budgets ----
     max_new_children_per_page: int = 60
-    max_homepage_children: int = 150
+    max_homepage_children: int = 150  # Legacy config; homepage links are no longer capped.
     max_pages_per_url_family: int = 25
     max_query_variants_per_path: int = 3
     follow_same_family_links_from_detail_pages: bool = False
@@ -842,12 +842,23 @@ class Collector:
         if parent:
             self.db.execute('INSERT OR IGNORE INTO links(from_url,to_url,normalized_to_url,link_text,'
                             'discovered_at) VALUES(?,?,?,?,?)', (parent, open_url, n, text, now()))
-        if self.db.execute('SELECT 1 FROM pages WHERE normalized_url=?', (n,)).fetchone():
+        direct = source == 'homepage'
+        existing = self.db.execute('SELECT id, depth, status FROM pages WHERE normalized_url=?', (n,)).fetchone()
+        if existing and direct and existing['depth'] > 1 and existing['status'] in ('DISCOVERED', 'SKIPPED'):
+            ok, why = self.policy(open_url)
+            status, typ = ('DISCOVERED', None) if ok else ('SKIPPED', 'SKIPPED')
+            self.db.execute('UPDATE pages SET depth=1,parent_url=?,page_url=?,link_text=?,priority=?,'
+                            'status=?,page_type=?,error_message=? WHERE id=?',
+                            (parent, open_url, text, priority, status, typ, why or None, existing['id']))
+            self.audit_priority(n, parent, text, source, depth, priority, strong, negative, gateway,
+                                dochub, 'QUEUED' if ok else 'SKIPPED', why or 'PROMOTED_FROM_DEEPER_QUEUE')
+            return ok
+        if existing:
             self.stats['duplicates'] += 1
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                                 gateway, dochub, 'IGNORED', 'DUPLICATE_NORMALIZED_URL')
             return False
-        if source != 'seed' and self.path_blocked(n, text):
+        if source not in ('seed', 'homepage') and self.path_blocked(n, text):
             self.increment_counter('negative')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                                 gateway, dochub, 'IGNORED', 'NEGATIVE_PATH_OR_TEXT')
@@ -855,7 +866,7 @@ class Collector:
         ok, why = self.policy(open_url)
         if not ok and why == 'blocked by robots.txt':
             self.increment_counter('robots_blocked')
-        if self.live_count() >= self.cfg.max_pages_per_website * (4 if self.cfg.coverage_mode else 1):
+        if not direct and self.live_count() >= self.cfg.max_pages_per_website * (4 if self.cfg.coverage_mode else 1):
             self.page_limit = True
             self.increment_counter('after_page_limit')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
@@ -867,18 +878,18 @@ class Collector:
         # Priority 0 gets a larger allowance, never an unlimited one.
         qv_cap = self.cfg.max_query_variants_per_path * (2 if priority <= 1 else 1)
         fam_cap = self.cfg.max_pages_per_url_family * (3 if priority <= 1 else 1)
-        if ok and source != 'seed' and has_query and self.query_variant_count(n) >= qv_cap:
+        if ok and source not in ('seed', 'homepage') and has_query and self.query_variant_count(n) >= qv_cap:
             self.increment_counter('query_limit')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                                 gateway, dochub, 'IGNORED', 'QUERY_VARIANT_LIMIT')
             return False
-        if ok and source != 'seed' and self.family_count(family) >= fam_cap:
+        if ok and source not in ('seed', 'homepage') and self.family_count(family) >= fam_cap:
             self.increment_counter('family_limit')
             self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
                                 gateway, dochub, 'IGNORED', 'URL_FAMILY_LIMIT')
             return False
         status, typ, err = 'DISCOVERED', None, None
-        if depth > self.cfg.max_depth:
+        if not direct and depth > self.cfg.max_depth:
             status, typ, err = 'SKIPPED', 'SKIPPED', 'Beyond maximum depth'
         elif not ok:
             status, typ, err = 'SKIPPED', 'SKIPPED', why
@@ -903,7 +914,7 @@ class Collector:
         logging.info('Discovered [%s] p=%s d=%s src=%s %s', status, priority, depth, source, open_url)
         return status == 'DISCOVERED'
 
-    def claim_next(self):
+    def claim_next(self, allow_deeper=True):
         """Atomic claim, shallow best-first. Rows inside a section that has already
         proven zero-yield (and that are not document hubs) are skipped here."""
         self.db.execute('BEGIN IMMEDIATE')
@@ -911,14 +922,15 @@ class Collector:
             chosen = None
             for _ in range(500):  # bounded skip loop
                 row = self.db.execute(
-                    "SELECT * FROM pages WHERE status='DISCOVERED' "
-                    "ORDER BY CASE WHEN depth=0 THEN 0 ELSE 1 END, priority ASC, depth ASC, discovered_order ASC LIMIT 1").fetchone()
+                    "SELECT * FROM pages WHERE status='DISCOVERED' AND (? OR depth<=1) "
+                    "ORDER BY CASE WHEN depth<=1 THEN depth ELSE 2 END, "
+                    "priority ASC, depth ASC, discovered_order ASC LIMIT 1", (allow_deeper,)).fetchone()
                 if not row:
                     break
                 url = row['normalized_url']
                 strong, negative, gateway, dochub = self.signals(url, row['link_text'] or '')
                 dead = None
-                if row['depth'] > 0 and not dochub and not self.cfg.coverage_mode:
+                if row['depth'] > 1 and not dochub and not self.cfg.coverage_mode:
                     dead = self.section_is_dead(url)
                 if dead:
                     self.db.execute(
@@ -1005,7 +1017,7 @@ class Collector:
                     if self.cfg.sitemap_document_folders:
                         parent = urljoin(n, '.')
                         if self.norm(parent) and self.internal(parent):
-                            if self.add(parent, self.seed, 'sitemap document folder', 1, 0, 'sitemap'):
+                            if self.add(parent, self.seed, 'sitemap document folder', 2, 0, 'sitemap'):
                                 added += 1
                     continue
                 if self.path_blocked(n):
@@ -1015,7 +1027,7 @@ class Collector:
                     if neutral_added >= self.cfg.max_neutral_sitemap_urls:
                         continue
                     neutral_added += 1
-                if self.add(loc, self.seed, 'sitemap', 1, rank, 'sitemap'):
+                if self.add(loc, self.seed, 'sitemap', 2, rank, 'sitemap'):
                     added += 1
         if added:
             self.increment_counter('sitemap_seeded', added)
@@ -1101,14 +1113,14 @@ class Collector:
             pass
         return False
 
-    async def reveal(self, p, on_change=None):
+    async def reveal(self, p, on_change=None, homepage=False):
         """Reveal bounded navigation controls, then document-section controls. Buttons and
         summaries only are clicked; ordinary anchors are never activated."""
         clicked = False
         clicked_keys = set()
         click_count = 0
         page_path = urlsplit(p.url).path or '/'
-        is_host_homepage = page_path.rstrip('/') == ''
+        is_host_homepage = homepage or page_path.rstrip('/') == ''
         selectors = (
             "header button:not([type=submit]),header [role=button],header summary,"
             "button[aria-haspopup=menu],[role=button][aria-haspopup=menu],"
@@ -1117,14 +1129,21 @@ class Collector:
             "[role=main] button:not([type=submit]),[role=main] [role=button],[role=main] summary,"
             "[role=tab]"
         )
+        if homepage:
+            selectors += (",nav button:not([type=submit]),nav [role=button],nav summary,"
+                          "[role=navigation] button:not([type=submit]),[role=navigation] summary,"
+                          "[aria-expanded][aria-controls]:not(a[href]):not([type=submit])")
+        # The link lists are uncapped on the homepage. Interactions stay bounded.
+        click_limit = max(24, self.cfg.max_esg_navigation_clicks_per_page) if homepage else self.cfg.max_esg_navigation_clicks_per_page
         for stage in ('menu', 'esg'):
-            while click_count < self.cfg.max_esg_navigation_clicks_per_page:
+            while click_count < click_limit:
                 candidate = None
                 label = ''
                 key = None
                 try:
                     loc = p.locator(selectors)
-                    for i in range(min(await loc.count(), 100)):
+                    count = await loc.count()
+                    for i in range(count if homepage else min(count, 100)):
                         el = loc.nth(i)
                         try:
                             text = ((await el.inner_text(timeout=350)) or
@@ -1137,7 +1156,8 @@ class Collector:
                             if await el.get_attribute('aria-expanded') == 'true' or \
                                     await el.get_attribute('aria-selected') == 'true':
                                 continue
-                            if stage == 'menu' and is_host_homepage and MENU_NAV.search(text):
+                            is_nav_control = homepage and await el.evaluate("e => Boolean(!e.closest('form') && e.closest('header,nav,[role=navigation]') && (e.matches('summary,[aria-controls],[aria-expanded],[aria-haspopup=menu]')))")
+                            if stage == 'menu' and is_host_homepage and (MENU_NAV.search(text) or is_nav_control):
                                 candidate, label, key = el, text, identity
                                 break
                             if stage == 'esg' and ESG_NAV.search(text):
@@ -1161,23 +1181,30 @@ class Collector:
                     break
         return clicked
 
-    async def links(self, p):
+    async def links(self, p, homepage=False):
         """Every link on the page. Label format: 'card heading | anchor text'."""
         out, seen = [], set()
         for f in p.frames:
             if f != p.main_frame and f.url and not self.internal(f.url):
                 continue
             try:
-                vals = await f.locator('a[href],area[href],[data-href],[data-url],[data-link],[data-target]').evaluate_all(
-                    "els=>els.slice(0,4000).map(e=>{"
-                    "const u=e.href||e.getAttribute('data-href')||e.getAttribute('data-url')||"
-                    "e.getAttribute('data-link')||e.getAttribute('data-target')||'';"
+                selectors = 'a[href],area[href],[data-href],[data-url],[data-link],[data-target]'
+                if homepage:
+                    selectors += ',iframe[src],embed[src],object[data],[data-file],[data-pdf],[data-download]'
+                vals = await f.locator(selectors).evaluate_all(
+                    "(els,home)=>(home?els:els.slice(0,4000)).flatMap(e=>{"
+                    "const urls=[e.getAttribute('href'),e.getAttribute('data-href'),e.getAttribute('data-url'),"
+                    "e.getAttribute('data-link'),e.getAttribute('data-target')];"
+                    "if(home) urls.push(e.getAttribute('src'),e.getAttribute('data'),"
+                    "e.getAttribute('data-file'),e.getAttribute('data-pdf'),e.getAttribute('data-download'));"
                     "const card=e.closest('article,.card,.item,.row,li,section,div');"
                     "const heading=card?card.querySelector('h1,h2,h3,h4,h5,h6,.title,.heading'):null;"
                     "const own=(e.innerText||e.textContent||e.getAttribute('aria-label')||e.title||'').trim();"
                     "const head=heading?(heading.textContent||'').trim():'';"
                     "const label=head?(head+' | '+own):own;"
-                    "try{return [new URL(u,document.baseURI).href,label]}catch(_){return ['',label]}})")
+                    "return (home?urls.filter(Boolean):[urls.find(Boolean)]).flatMap(u=>{"
+                    "if(!u || (u.startsWith('#') && !/^#(?:[!/?]|.*=)/.test(u))) return [];"
+                    "try{const url=new URL(u,document.baseURI);return /^https?:$/.test(url.protocol)?[[url.href,label]]:[]}catch(_){return []}})})", homepage)
             except PWError:
                 continue
             src = 'page' if f == p.main_frame else 'iframe'
@@ -1335,7 +1362,13 @@ class Collector:
 
     async def scan(self, p, ctx, parent, depth, response_docs):
         """Returns (documents, all_links)."""
-        all_links = await self.links(p)
+        homepage = depth == 0
+        all_links = await self.links(p, homepage=homepage)
+        if homepage:
+            # Queue the rendered menu state before any potentially slow PDF probes.
+            # add() records even out-of-scope links, but never queues them for visits.
+            for child, label, _ in all_links:
+                self.add(child, parent, label, 1, source='homepage')
         documents, seen_docs = [], set()
         cap = self.cfg.max_documents_per_page
         # Network responses are audit-only; DOM evidence is required.
@@ -1369,6 +1402,8 @@ class Collector:
             logging.info('Document evidence source=%s page=%s document=%s', src, parent, u)
         if len(documents) > 20:
             logging.info('... plus %s more document(s) on %s', len(documents) - 20, parent)
+        if homepage:
+            return documents, all_links
         # 2) Child discovery.
         candidates, seen = [], set()
         parent_family = self.url_family(parent)
@@ -1406,8 +1441,7 @@ class Collector:
                 continue
             candidates.append((rank, n, text, child))
         candidates.sort(key=lambda x: (x[0], x[1]))
-        budget = (self.cfg.max_homepage_children if parent.rstrip('/') == self.seed.rstrip('/')
-                  else self.cfg.max_new_children_per_page)
+        budget = self.cfg.max_new_children_per_page
         # v5: fill the page budget in priority order (no per-bucket cap on normal
         # pages); only low-priority news / blog / events links have their own cap.
         normal = [x for x in candidates if x[0] < 8]
@@ -1418,7 +1452,7 @@ class Collector:
             if accepted >= budget:
                 break
             selected.append((rank, n, text, child))
-            child_depth = depth if self.is_pagination(child, parent, text) else depth + 1
+            child_depth = depth + 1
             accepted += self.add(child, parent, text, child_depth, rank)
         for rank, n, text, child in low:
             selected.append((rank, n, text, child))
@@ -1791,7 +1825,7 @@ class Collector:
                 if await self.cookie(p):
                     await self.settle(p, perf)
                     await capture('after_consent')
-                await self.reveal(p, capture)
+                await self.reveal(p, capture, homepage=depth == 0)
                 perf['interaction'] += max(0, time.perf_counter() - t0 - (perf['scan'] - scan_before))
                 deadline = time.monotonic() + self.cfg.expansion_budget_seconds
                 pdet, checked, limit = 0, 1, 0
@@ -1911,6 +1945,9 @@ class Collector:
         t = dict(self.db.execute('SELECT page_type,COUNT(*) FROM pages GROUP BY page_type').fetchall())
         total = self.db.execute('SELECT COUNT(*) FROM pages').fetchone()[0]
         docs = self.db.execute('SELECT COUNT(*) FROM document_evidence').fetchone()[0]
+        direct_counts = dict(self.db.execute('SELECT status,COUNT(*) FROM pages WHERE depth=1 GROUP BY status'))
+        logging.info('Homepage link outcomes (depth 1): %s; unvisited URLs remain in classified_pages.csv', direct_counts)
+        logging.info('Homepage audit: see source=homepage in PRIORITY_REPORT.csv')
         logging.info(
             'FINAL seed=%s discovered=%s processed=%s document_pages=%s documents=%s html=%s failed=%s '
             'skipped=%s duplicates=%s pagination=%s pagination_limits=%s pagination_states=%s '
@@ -1941,10 +1978,15 @@ class Collector:
                 attempted = self.db.execute(
                     "SELECT COUNT(*) FROM pages WHERE status IN ('PROCESSED','FAILED','PROCESSING')"
                 ).fetchone()[0]
-                if attempted >= self.cfg.max_pages_per_website:
-                    self.page_limit = True
+                root_busy = self.db.execute("SELECT 1 FROM pages WHERE depth=0 AND status='PROCESSING' LIMIT 1").fetchone()
+                first_level_busy = self.db.execute("SELECT 1 FROM pages WHERE depth=1 AND status='PROCESSING' LIMIT 1").fetchone()
+                # Wait for the seed's menus, then complete first-level visits before deeper work.
+                at_limit = attempted >= self.cfg.max_pages_per_website
+                row = None if root_busy else self.claim_next(allow_deeper=not (at_limit or first_level_busy))
+                if row is None and at_limit and not root_busy and not first_level_busy:
+                    self.page_limit = bool(self.db.execute(
+                        "SELECT 1 FROM pages WHERE depth>1 AND status='DISCOVERED' LIMIT 1").fetchone())
                     return
-                row = self.claim_next()
             if not row:
                 # Other workers may still be adding children; wait briefly before quitting.
                 async with self._lock:
