@@ -28,3 +28,4 @@ run_date,seed_url,max_pages_requested,discovered,processed,pdf_pages,html_pages,
 2026-11-20 10:37:51 UTC,https://mtaggroup.com/,3000,1,0,0,0,0,1,0,QUEUE_EXHAUSTED,true,false,false,0
 2026-11-20 10:42:23 UTC,http://www.sunteckindia.com/,3000,232,228,33,195,3,1,0,QUEUE_EXHAUSTED,true,false,false,2
 2026-11-20 10:59:45 UTC,https://www.sunteckindia.com/esg,3000,212,209,31,178,1,2,0,QUEUE_EXHAUSTED,true,false,false,2
+2026-11-20 12:17:56 UTC,https://www.dolby.com/,3000,6874,2828,381,2447,299,74,3673,INCOMPLETE_QUEUE_REMAINS,false,false,false,6
