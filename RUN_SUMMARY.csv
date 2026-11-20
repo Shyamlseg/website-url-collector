@@ -19,3 +19,4 @@ run_date,seed_url,max_pages_requested,discovered,processed,pdf_pages,html_pages,
 2026-09-05 15:31:51 UTC,https://chandra-asri.com/en,500,4771,2257,517,1740,1036,1478,0,QUEUE_EXHAUSTED,true,false,false,13
 2026-11-20 07:05:35 UTC,,3000,0,0,0,0,0,0,0,QUEUE_EXHAUSTED,true,false,false,0
 2026-11-20 07:09:18 UTC,,3000,0,0,0,0,0,0,0,QUEUE_EXHAUSTED,true,false,false,0
+2026-11-20 08:01:01 UTC,https://novagold.com/,3000,0,0,0,0,0,0,0,QUEUE_EXHAUSTED,true,false,false,0
