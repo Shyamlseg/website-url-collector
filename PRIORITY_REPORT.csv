@@ -1,3 +1,3 @@
 ﻿seed_url,parent_url,candidate_url,link_text,source,depth,priority,strong_esg,negative_match,gateway_match,document_hub_match,url_family,decision,reason,recorded_at
-https://novagold.com/,,https://novagold.com/,Home,seed,0,0,0,0,0,0,novagold.com/,QUEUED,ACCEPTED,2026-11-20T09:09:30+00:00
-https://novagold.com/,,https://novagold.com/,Home,queue,0,0,0,0,0,0,novagold.com/,CLAIMED,SELECTED_BY_PRIORITY_DEPTH_ORDER,2026-11-20T09:09:30+00:00
+https://mtaggroup.com/,,https://mtaggroup.com/,Home,seed,0,0,0,0,0,0,mtaggroup.com/,QUEUED,ACCEPTED,2026-11-20T09:16:53+00:00
+https://mtaggroup.com/,,https://mtaggroup.com/,Home,queue,0,0,0,0,0,0,mtaggroup.com/,CLAIMED,SELECTED_BY_PRIORITY_DEPTH_ORDER,2026-11-20T09:17:23+00:00
