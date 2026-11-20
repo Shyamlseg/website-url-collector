@@ -24,3 +24,4 @@ run_date,seed_url,max_pages_requested,discovered,processed,pdf_pages,html_pages,
 2026-11-20 09:18:39 UTC,https://mtaggroup.com/,3000,1,0,0,0,1,0,0,QUEUE_EXHAUSTED,true,false,false,0
 2026-11-20 09:25:33 UTC,http://www.sunteckindia.com/,3000,53,27,7,20,0,26,0,QUEUE_EXHAUSTED,true,false,false,3
 2026-11-20 09:45:51 UTC,http://www.sunteckindia.com/,3000,187,48,14,34,8,131,0,QUEUE_EXHAUSTED,true,false,false,2
+2026-11-20 10:29:43 UTC,http://www.sunteckindia.com/,3000,0,0,0,0,0,0,0,QUEUE_EXHAUSTED,true,false,false,0
