@@ -1,1 +1,776 @@
+# Rules for every keywords_*.txt file
+#  - One keyword or phrase per line. Lowercase. Lines starting with '#' are comments (headings are '# =====').
+#  - WHOLE-WORD matching on the URL path words (and the link text). 'gri' matches /gri-index but never /grid or /agriculture.
+#  - Every form must be listed ('policy' will NOT match 'policies'; 'annualreport' will NOT match 'annual report').
+#    A trailing '+' was used when generating: it already expanded plural + joined forms, so you do not need to type them.
+#  - File extensions (.html .aspx .php), 'default', 'index', and /en/ style folders are ignored before matching.
+#
+# DECISION ORDER for one link (first rule that matches wins):
+#   1  first folder is a non-English language folder        (hardblock file, lang_block)  -> REJECT
+#   2  hard-block phrase / word                             (hardblock file)              -> REJECT
+#   3  core word or phrase (or regex)                       (core file)                   -> FOLLOW at any depth
+#   4  last folder IS a hub and depth <= 3                  (hub file)                    -> FOLLOW (listing page)
+#   5  block word / phrase                                  (block file)                  -> REJECT
+#   6  a parent folder is a hub AND last folder has a hub-child word (hubchild file)      -> FOLLOW
+#   7  nothing matched                                                                    -> REJECT
+#
+# keywords_block.txt  -  words that STOP a hub / hub-child link (news, press, products, careers, stock quote ...).
+# A core word in the same link still wins (/sustainability/news/ is kept). Remove a word here if it blocks pages you need.
+
+
+# Items below were checked against your 8,852 known pages; the % of known positives each family would cost is shown in the report.
+news
+newsroom
+news room
+news and media
+news media
+news and events
+news events
+news and insights
+news insights
+news and views
+news views
+news and updates
+news updates
+news and stories
+news stories
+news and press
+news press
+news and announcements
+news announcements
+news centre
+news center
+news release
+news releases
+newsrelease
+newsreleases
+news feed
+news archive
+news details
+news detail
+news article
+news articles
+newsarticle
+newsarticles
+latest news
+company news
+corporate news
+group news
+industry news
+investor news
+in the news
+news and event
+news event
+press
+press release
+press releases
+pressrelease
+pressreleases
+press room
+press centre
+press center
+press kit
+press kits
+press office
+press contact
+press contacts
+press coverage
+press archive
+press and media
+press media
+press and news
+press news
+media
+media centre
+media center
+media room
+media kit
+media kits
+media release
+media releases
+mediarelease
+mediareleases
+media contact
+media contacts
+media enquiries
+media inquiries
+media coverage
+media gallery
+media relations
+media and news
+media news
+media and press
+media press
+media and events
+media events
+media and communications
+media communications
+media library
+blog
+blogs
+blog post
+blog posts
+stories
+story
+success stories
+customer stories
+our stories
+article
+articles
+feature
+features
+featured
+spotlight
+spotlights
+insight
+insights
+perspective
+perspectives
+viewpoint
+viewpoints
+opinion
+opinions
+thought leadership
+magazine
+magazines
+newsletter
+newsletters
+bulletin
+bulletins
+digest
+podcast
+podcasts
+video
+videos
+webinar
+webinars
+webcast
+webcasts
+broadcast
+livestream
+live stream
+gallery
+galleries
+photo
+photos
+infographic
+infographics
+event
+events
+events and webinars
+events webinars
+events and conferences
+events conferences
+events calendar
+upcoming events
+past events
+event calendar
+event details
+event registration
+events and news
+events news
+calendar
+financial calendar
+corporate calendar
+ir calendar
+investor calendar
+investor events
+conference
+conferences
+conference call
+conference calls
+conferencecall
+conferencecalls
+earnings call
+earnings calls
+earningscall
+earningscalls
+earnings webcast
+earnings calendar
+trade show
+trade shows
+exhibition
+exhibitions
+expo
+summit
+symposium
+workshop
+workshops
+seminar
+seminars
+training
+course
+courses
+academy
+learn
+learning
+learn more
+learn about
+education
+educational
+students
+student
+school
+schools
+kids
+youth
+tutorial
+tutorials
+guide
+guides
+how to
+how it works
+tips
+tip
+advice
+faq
+faqs
+frequently asked questions
+questions
+glossary
+dictionary
+definitions
+what is
+recipe
+recipes
+food
+menu
+menus
+awards
+award
+awards and recognition
+awards recognition
+recognition
+accolades
+rankings
+ranking
+milestones
+anniversary
+history
+our history
+heritage
+timeline
+mission
+our mission
+vision
+our vision
+values
+our values
+culture
+our culture
+purpose
+brand
+brands
+our brands
+brand guidelines
+brand assets
+brand centre
+brand center
+logo
+logos
+trademark
+trademarks
+patent
+patents
+patent licensing
+patent license
+patent licence
+patent pool
+patent portfolio
+licensing
+license
+licenses
+licence
+licences
+licensing programs
+intellectual property
+copyright
+advertising
+advertisement
+marketing
+campaign
+campaigns
+promotion
+promotions
+promo
+offer
+offers
+special offers
+sale
+sales
+deal
+deals
+coupon
+coupons
+discount
+discounts
+rebate
+rebates
+rewards
+loyalty
+referral
+sponsorship
+sponsorships
+sponsor
+sponsors
+partner
+partners
+partnership
+partnerships
+partner program
+partner portal
+partner network
+affiliates
+affiliate
+reseller
+resellers
+channel partners
+distributor
+distributors
+dealer
+dealers
+dealer locator
+retailer
+retailers
+wholesale
+franchise
+franchises
+supplier portal
+vendor
+vendors
+vendor portal
+tenders
+tender
+rfp
+rfq
+bids
+developer
+developers
+developer portal
+developer resources
+api
+apis
+sdk
+open source
+opensource
+github
+integrations
+integration
+plugins
+plugin
+extensions
+apps
+app
+mobile app
+download app
+software
+software downloads
+firmware
+drivers
+driver
+patches
+patch
+updates
+update
+release notes
+changelog
+user guide
+user guides
+user manual
+user manuals
+manual
+manuals
+datasheet
+datasheets
+data sheet
+data sheets
+brochure
+brochures
+catalog
+catalogs
+catalogue
+catalogues
+product catalog
+specifications
+specification
+specs
+technical specifications
+technical documentation
+technical support
+technical resources
+technical library
+technical papers
+whitepaper
+whitepapers
+white paper
+white papers
+case study
+case studies
+customer success
+customer story
+customers
+customer
+customer service
+customer care
+customer support
+customer portal
+client
+clients
+client stories
+client portal
+testimonials
+testimonial
+reviews
+review
+ratings
+rating
+product
+products
+product range
+product ranges
+product finder
+product selector
+product search
+product comparison
+product details
+product information
+product documentation
+product support
+product registration
+product recall
+product recalls
+product updates
+product news
+product launch
+product launches
+new products
+all products
+our products
+solutions
+solution
+our solutions
+services
+service
+our services
+service centre
+service center
+service locations
+service areas
+service area
+service request
+service status
+services and solutions
+services solutions
+industries
+industry
+sectors
+sector
+markets
+market
+market data
+market update
+market commentary
+market insights
+technology
+technologies
+innovation
+innovations
+research
+research and development
+research development
+r and d
+r d
+labs
+lab
+laboratory
+engineering
+operations
+our operations
+global operations
+facilities
+facility
+plants
+plant
+factories
+factory
+mills
+mill
+mines
+mine
+sites
+site locations
+locations
+location
+our locations
+global locations
+office
+offices
+office locations
+branches
+branch
+branch locator
+find a location
+find a branch
+find an office
+store locator
+find a store
+where to buy
+global presence
+worldwide
+countries
+country
+regions
+region
+region selector
+country selector
+language selector
+our people
+people and culture
+people culture
+meet the team
+our team
+team
+leadership
+leadership team
+management team
+executive team
+executives
+executive
+executive leadership
+senior leadership
+senior management
+officers
+our leaders
+careers
+career
+jobs
+job
+vacancies
+vacancy
+openings
+opportunities
+work with us
+work for us
+join us
+join our team
+life at
+internship
+internships
+graduate
+graduates
+graduate programme
+graduate program
+apprenticeship
+early careers
+students and graduates
+students graduates
+recruitment
+recruiting
+hiring
+employment
+employment opportunities
+employee portal
+employee login
+employees
+employee
+alumni
+retirees
+stock
+stock price
+stock prices
+stock quote
+stock quotes
+stock chart
+stock charts
+stock information
+stock data
+stock performance
+stock lookup
+stock history
+stock split
+stock splits
+stock tools
+stock and dividend
+stock dividend
+share price
+share prices
+share price information
+share price history
+share price chart
+share price calculator
+share information
+share data
+share centre
+share center
+share tools
+share quote
+share quotes
+historical price
+historical prices
+historical stock price
+historical share price
+price lookup
+price history
+price chart
+price calculator
+price information
+pricing
+price
+prices
+rates
+rate
+tariff
+tariffs
+rate case
+rate cases
+rate schedules
+rates and tariffs
+rates tariffs
+fees
+fee
+fee schedule
+billing
+bill
+bills
+pay bill
+pay your bill
+payment
+payments
+payment options
+payment methods
+payment center
+payment centre
+account
+accounts
+my account
+online account
+online services
+online banking
+analyst
+analysts
+analyst coverage
+analyst estimates
+analyst consensus
+analyst ratings
+analyst day
+analyst meeting
+analyst and investor day
+analyst investor day
+investor conference
+investor conferences
+investor meeting
+investor meetings
+investor faq
+investor faqs
+investor contact
+investor contacts
+investor inquiries
+investor enquiries
+investor alerts
+investor email
+email alerts
+email alert
+email notifications
+news alerts
+alerts
+alert
+rss
+rss feed
+subscribe
+subscription
+subscriptions
+sign up
+signup
+mailing list
+unsubscribe
+contacts
+contact details
+contact information
+contact page
+contact form
+contact us
+contact
+get in touch
+reach us
+write to us
+call us
+email us
+enquiry
+enquiries
+inquiry
+inquiries
+feedback
+survey
+surveys
+questionnaire
+poll
+polls
+quiz
+sweepstakes
+contest
+contests
+giveaway
+competition
+competitions
+dividend history
+dividend calculator
+dividend reinvestment
+dividend reinvestment plan
+dividends
+drip
+drp
+direct stock purchase
+transfer agent
+registrar
+registrar and transfer agent
+registrar transfer agent
+share registrar
+stock transfer
+shareholder services portal
+shareholder portal
+shareholder login
+shareholder faq
+shareholder contact
+unclaimed shares
+unclaimed property
+credit rating
+credit ratings
+debt investors
+debt information
+debt securities
+bondholders
+bondholder
+bond information
+bond investors
+fixed income
+treasury
+capital markets
+sell side
+buy side
+consensus
+estimates
+guidance
+outlook
+earnings guidance
+earnings estimates
+earnings preview
+earnings summary
+earnings transcript
+earnings transcripts
+transcript
+transcripts
+why invest
+investment case
+investment highlights
+investment thesis
+information inquiry
+ir contact
+ir contacts
+ir faq
+major shareholders
+shareholder structure
+shareholders structure
+ownership
+share capital
+shares
 
