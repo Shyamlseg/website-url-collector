@@ -18,6 +18,11 @@ on:
         required: true
         default: "12"
         type: string
+      companies_per_shard:
+        description: Companies in each small shard (smaller = better balance, more setup overhead)
+        required: true
+        default: "10"
+        type: string
 
 permissions:
   contents: read
@@ -43,11 +48,13 @@ jobs:
         id: split
         env:
           INPUT_WEBSITES: ${{ inputs.website_url }}
+          COMPANIES_PER_SHARD: ${{ inputs.companies_per_shard }}
         shell: bash
         run: |
           python - <<'PY'
           import csv
           import json
+          import math
           import os
           from pathlib import Path
           from urllib.parse import urlsplit
@@ -69,17 +76,29 @@ jobs:
               if key not in seen:
                   seen.add(key)
                   urls.append(url)
-          count = min(6, (len(urls) + 1) // 2)
+
+          # Small shards: GitHub runs 6 at a time (max-parallel below). When a runner
+          # finishes a shard, the next waiting shard starts on it automatically.
+          try:
+              per_shard = max(1, int(os.environ.get('COMPANIES_PER_SHARD', '10')))
+          except ValueError:
+              per_shard = 10
+          count = max(1, math.ceil(len(urls) / per_shard))
+          if count > 250:  # GitHub matrix limit is 256 jobs
+              raise SystemExit(f'{count} shards is too many; increase companies_per_shard')
+
           shards = list(range(1, count + 1))
           folder = Path('crawl-batches')
           folder.mkdir()
           for shard in shards:
+              # Round-robin keeps neighbouring (often similar-size) companies apart.
               batch = urls[shard - 1::count]
               with (folder / f'shard-{shard}.csv').open('w', encoding='utf-8', newline='') as f:
                   writer = csv.writer(f)
                   writer.writerow(['website_url'])
                   writer.writerows((url,) for url in batch)
               print(f'Shard {shard}: {len(batch)} company URL(s)')
+          print(f'Total: {len(urls)} companies in {count} shards')
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
               print(f'shards={json.dumps(shards)}', file=f)
           PY
