@@ -1,3 +1,329 @@
+# Rules for every keywords_*.txt file
+#  - One keyword or phrase per line. Lowercase. Lines starting with '#' are comments (headings are '# =====').
+#  - WHOLE-WORD matching on the URL path words (and the link text). 'gri' matches /gri-index but never /grid or /agriculture.
+#  - Every form must be listed ('policy' will NOT match 'policies'; 'annualreport' will NOT match 'annual report').
+#    A trailing '+' was used when generating: it already expanded plural + joined forms, so you do not need to type them.
+#  - File extensions (.html .aspx .php), 'default', 'index', and /en/ style folders are ignored before matching.
+#
+# DECISION ORDER for one link (first rule that matches wins):
+#   1  first folder is a non-English language folder        (hardblock file, lang_block)  -> REJECT
+#   2  hard-block phrase / word                             (hardblock file)              -> REJECT
+#   3  core word or phrase (or regex)                       (core file)                   -> FOLLOW at any depth
+#   4  last folder IS a hub and depth <= 3                  (hub file)                    -> FOLLOW (listing page)
+#   5  block word / phrase                                  (block file)                  -> REJECT
+#   6  a parent folder is a hub AND last folder has a hub-child word (hubchild file)      -> FOLLOW
+#   7  nothing matched                                                                    -> REJECT
+#
+# keywords_hardblock.txt  -  ALWAYS rejected, whatever else is in the link. Two sections:
+#   section 'hardblock'   junk pages (cookie, T&C, login, cart, search, sitemap ...). Phrases are removed from the path first.
+#   section 'lang_block'  language/locale folders. Matched ONLY against the FIRST folder (/th/ /de/ /ja/ ...). English/region folders
+#                 (en en-gb en-us en-in english eng us gb uk ca ir) are deliberately NOT listed.
+
+# [hardblock]
+cookie policy
+cookie notice
+cookie statement
+cookie settings
+cookie preferences
+cookie declaration
+cookies policy
+cookies
+cookie
+terms and conditions
+terms conditions
+terms of use
+terms of service
+terms of sale
+terms of access
+terms and conditions of use
+terms and conditions of sale
+website terms
+site terms
+web terms
+user agreement
+end user agreement
+eula
+legal notice
+legal notices
+legal disclaimer
+disclaimer
+disclaimers
+accessibility
+accessibility statement
+accessibility policy
+acceptable use policy
+acceptable use
+website policy
+site policy
+linking policy
+copyright policy
+copyright notice
+trademark policy
+social media policy
+social media guidelines
+return policy
+returns policy
+refund policy
+shipping policy
+delivery policy
+cancellation policy
+exchange policy
+payment policy
+warranty policy
+order status
+track order
+track your order
+order tracking
+cart
+shopping cart
+basket
+shopping basket
+checkout
+check out
+wishlist
+wish list
+login
+log in
+logon
+log on
+signin
+sign in
+signon
+sign on
+sign out
+signout
+logout
+log out
+register now
+my profile
+user profile
+reset password
+forgot password
+forgot your password
+account recovery
+search
+search results
+site search
+advanced search
+sitemap
+site map
+site index
+sitemap xml
+printable
+print version
+printer friendly
+pdf version
+share this
+share page
+facebook
+twitter
+linkedin
+instagram
+youtube
+tiktok
+pinterest
+whatsapp
+wechat
+weibo
+reddit
+telegram
+mailto
+tel
+javascript
+wp admin
+wp login
+wp content
+wp json
+wp includes
+ical
+ics
+vcard
+oembed
+help desk
+helpdesk
+support portal
+support request
+support ticket
+support tickets
+live chat
+chatbot
+call back
+callback
+request a quote
+request quote
+get a quote
+quote request
+request a demo
+book a demo
+book a call
+book a meeting
+schedule a demo
+free trial
+buy now
+buy online
+shop now
+shop online
+order online
+add to cart
+add to basket
+compare products
+sale items
+gift card
+gift cards
+gift ideas
+webshop
+web shop
+eshop
+e shop
+e commerce
+bestsellers
+best sellers
+new arrivals
+related articles
+related posts
+related links
+recent posts
+recent articles
+recent news
+older posts
+newer posts
+previous post
+next post
+previous article
+next article
+back to top
+skip to content
+skip to main content
+skip navigation
+home page
+homepage
+page not found
+error 404
+not found
+404
+500 error
+err404
+
+# [lang_block]
+th
+th-th
+thai
+ar
+ar-sa
+ar-ae
+ar-eg
+arabic
+de
+de-de
+de-ch
+de-at
+deutsch
+german
+fr
+fr-fr
+fr-ca
+fr-ch
+fr-be
+francais
+french
+es
+es-es
+es-mx
+es-ar
+espanol
+spanish
+it
+it-it
+it-ch
+italiano
+italian
+pt
+pt-br
+pt-pt
+portugues
+portuguese
+ja
+ja-jp
+jp
+japanese
+zh
+zh-cn
+zh-tw
+zh-hk
+cn
+tw
+chinese
+ko
+ko-kr
+kr
+korean
+ru
+ru-ru
+russian
+tr
+tr-tr
+turkish
+pl
+pl-pl
+polish
+nl
+nl-nl
+nl-be
+dutch
+sv
+sv-se
+swedish
+da
+da-dk
+danish
+fi
+fi-fi
+finnish
+nb
+no-no
+norwegian
+cs
+cs-cz
+czech
+hu
+hu-hu
+hungarian
+ro
+ro-ro
+romanian
+el
+el-gr
+greek
+he
+he-il
+hebrew
+id
+id-id
+indonesian
+ms
+ms-my
+malay
+vi
+vi-vn
+vietnamese
+hi
+hi-in
+hindi
+bg
+hr
+sk
+sl
+sr
+lt
+lv
+et
+uk-ua
+ua
+uz
+kk
+ka
+az
+
 form 10 k
 form10k
 form 20 f
