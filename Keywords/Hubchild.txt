@@ -1,1 +1,542 @@
 
+reports
+report
+presentation
+presentations
+results
+result
+results centre
+resultscentre
+results center
+resultscenter
+earnings
+earnings release
+earningsrelease
+earnings releases
+earningsreleases
+earnings report
+earningsreport
+earnings reports
+earningsreports
+earnings results
+earningsresults
+earnings presentation
+earningspresentation
+financial results
+financialresults
+financial reports
+financialreports
+financial statements
+financialstatements
+financial information
+financialinformation
+financial data
+financialdata
+financial documents
+financialdocuments
+financials
+quarterly results
+quarterlyresults
+quarterly reports
+quarterlyreports
+quarterly report
+quarterlyreport
+quarterly financial results
+quarterlyfinancialresults
+quarterly financials
+quarterlyfinancials
+interim results
+interimresults
+interim reports
+interimreports
+interim report
+interimreport
+interim financial results
+interimfinancialresults
+half year results
+halfyearresults
+half year reports
+halfyearreports
+half year report
+halfyearreport
+half yearly results
+halfyearlyresults
+half yearly reports
+halfyearlyreports
+full year results
+fullyearresults
+full year reports
+fullyearreports
+full year
+fullyear
+year end results
+yearendresults
+year end reports
+yearendreports
+annual results
+annualresults
+fiscal year results
+fiscalyearresults
+events and presentations
+events presentations
+eventsandpresentations
+eventspresentations
+event and presentations
+event presentations
+eventandpresentations
+eventpresentations
+webcasts and presentations
+webcasts presentations
+webcastsandpresentations
+webcastspresentations
+results and presentations
+results presentations
+resultsandpresentations
+resultspresentations
+results and reports
+results reports
+resultsandreports
+resultsreports
+results reports and presentations
+results reports presentations
+resultsreportspresentations
+reports and presentations
+reports presentations
+reportsandpresentations
+reportspresentations
+reports and results
+reports results
+reportsandresults
+reportsresults
+reports and filings
+reports filings
+reportsandfilings
+reportsfilings
+reports and publications
+reports publications
+reportsandpublications
+reportspublications
+reports and accounts
+reports accounts
+reportsandaccounts
+reportsaccounts
+reports and downloads
+reports downloads
+reportsanddownloads
+reportsdownloads
+reports and documents
+reports documents
+reportsanddocuments
+reportsdocuments
+financial reports and presentations
+financial reports presentations
+financialreportspresentations
+presentations and reports
+presentations reports
+presentationsandreports
+presentationsreports
+presentations and publications
+presentations publications
+presentationsandpublications
+presentationspublications
+presentations and documents
+presentations documents
+presentationsanddocuments
+presentationsdocuments
+presentations and webcasts
+presentations webcasts
+presentationsandwebcasts
+presentationswebcasts
+investor presentations
+investorpresentations
+investor day
+investorday
+investor days
+investordays
+capital markets day
+capitalmarketsday
+filings
+filing
+sec filings
+secfilings
+regulatory filings
+regulatoryfilings
+regulatory documents
+regulatorydocuments
+regulatory reports
+regulatoryreports
+regulatory disclosures
+regulatorydisclosures
+regulatory information
+regulatoryinformation
+regulatory news
+regulatorynews
+regulatory announcements
+regulatoryannouncements
+regulated information
+regulatedinformation
+regulatory
+statutory
+statutory reports
+statutoryreports
+statutory disclosures
+statutorydisclosures
+announcements
+announcement
+company announcements
+companyannouncements
+corporate announcements
+corporateannouncements
+corporate announcement
+corporateannouncement
+asx announcements
+asxannouncements
+bursa announcements
+bursaannouncements
+stock exchange announcements
+stockexchangeannouncements
+stock exchange filings
+stockexchangefilings
+sens announcements
+sensannouncements
+rns
+rns announcements
+rnsannouncements
+rns feed
+rnsfeed
+market announcements
+marketannouncements
+immediate reports
+immediatereports
+other disclosures
+otherdisclosures
+other documents
+otherdocuments
+other reports
+otherreports
+other policies
+otherpolicies
+downloads
+download
+documents
+document
+document library
+documentlibrary
+documents library
+documentslibrary
+library
+libraries
+archive
+archives
+resources
+resource
+resource library
+resourcelibrary
+publications
+publication
+policies
+policy
+policies and charters
+policies charters
+policiesandcharters
+policiescharters
+policies and procedures
+policies procedures
+policiesandprocedures
+policiesprocedures
+policies and guidelines
+policies guidelines
+policiesandguidelines
+policiesguidelines
+policies and documents
+policies documents
+policiesanddocuments
+policiesdocuments
+policies and statements
+policies statements
+policiesandstatements
+policiesstatements
+policies and codes
+policies codes
+policiesandcodes
+policiescodes
+charters
+charter
+codes
+code
+guidelines
+principles
+standards
+declaration
+declarations
+statements
+statement
+positions
+position
+commitments
+commitment
+framework
+frameworks
+roadmap
+approach
+action plan
+actionplan
+management approach
+managementapproach
+strategy
+performance
+targets
+goals
+data
+metrics
+indicators
+key figures
+keyfigures
+highlights
+overview
+at a glance
+ataglance
+governance
+corporate governance
+corporategovernance
+governance documents
+governancedocuments
+governance policies
+governancepolicies
+board
+board of directors
+boardofdirectors
+board and committees
+board committees
+boardandcommittees
+boardcommittees
+committees
+committee
+directors
+management
+leadership and governance
+leadership governance
+leadershipandgovernance
+leadershipgovernance
+management and governance
+management governance
+managementandgovernance
+managementgovernance
+shareholder information
+shareholderinformation
+shareholders information
+shareholdersinformation
+shareholder documents
+shareholderdocuments
+shareholder resources
+shareholderresources
+shareholder reports
+shareholderreports
+shareholder meetings
+shareholdermeetings
+shareholders meetings
+shareholdersmeetings
+shareholder letters
+shareholderletters
+shareholder letter
+shareholderletter
+shareholder rights
+shareholderrights
+shareholder communications
+shareholdercommunications
+shareholder centre
+shareholdercentre
+shareholder center
+shareholdercenter
+general meeting
+generalmeeting
+general meetings
+generalmeetings
+annual general meeting
+annualgeneralmeeting
+annual general meetings
+annualgeneralmeetings
+annual meeting
+annualmeeting
+annual meetings
+annualmeetings
+agm
+agms
+agm egm
+agmegm
+egm
+general assembly
+generalassembly
+meetings
+meeting
+minutes
+minutes of meetings
+minutesofmeetings
+circular
+circulars
+circular notice
+circularnotice
+circular to shareholders
+circulartoshareholders
+notice
+notices
+notice to shareholders
+noticetoshareholders
+agenda
+resolutions
+resolution
+proxy
+proxy materials
+proxymaterials
+proxy statement
+proxystatement
+proxy statements
+proxystatements
+voting
+voting results
+votingresults
+shareholding pattern
+shareholdingpattern
+shareholding
+iepf
+unclaimed dividend
+unclaimeddividend
+unclaimed dividends
+unclaimeddividends
+annual return
+annualreturn
+annual returns
+annualreturns
+secretarial compliance
+secretarialcompliance
+secretarial compliance reports
+secretarialcompliancereports
+integrity
+verification
+assurance
+taxonomy
+nomination
+cybersecurity
+information security
+informationsecurity
+data governance
+datagovernance
+data protection
+dataprotection
+data privacy
+dataprivacy
+privacy
+value chain
+valuechain
+suppliers
+supplier
+procurement
+sourcing
+compliance
+compliance reports
+compliancereports
+disclosure
+disclosures
+public disclosures
+publicdisclosures
+disclosure policies
+disclosurepolicies
+public policy
+publicpolicy
+public policy positions
+publicpolicypositions
+legal
+legal documents
+legaldocuments
+certificates
+certificate
+certifications
+certification
+accreditations
+recognitions
+certificates and recognitions
+certificates recognitions
+certificatesandrecognitions
+certificatesrecognitions
+awards and certifications
+awards certifications
+awardsandcertifications
+awardscertifications
+environment
+environmental
+environmental data
+environmentaldata
+social
+social data
+socialdata
+community
+communities
+people
+planet
+water
+energy
+waste
+emissions
+climate
+carbon
+safety
+health
+health and safety
+health safety
+healthandsafety
+healthsafety
+risk
+risk management
+riskmanagement
+internal control
+internalcontrol
+materiality
+stakeholders
+stakeholder
+stakeholder engagement
+stakeholderengagement
+quality
+quality management system
+qualitymanagementsystem
+phishing
+esg
+sustainability
+csr
+responsibility
+responsible business
+responsiblebusiness
+ethics
+ethics and compliance
+ethics compliance
+ethicsandcompliance
+ethicscompliance
+code of conduct
+codeofconduct
+tax
+tax strategy
+taxstrategy
+fact sheets
+factsheets
+fact sheet
+factsheet
+data book
+databook
+data tables
+datatables
+data table
+datatable
+
+# ===== extra (moved from other lists)
+policy and framework
+mgt 9
+meetings and results
+disclosure of information
+meeting minutes
+meeting notice
+meeting results
+meeting materials
+mgt 7
+group policy on
+policy on
+guidelines for
+
