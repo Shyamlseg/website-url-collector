@@ -1,1 +1,809 @@
 
+announcements
+announcement
+company announcements
+companyannouncements
+corporate announcements
+corporateannouncements
+corporate announcement
+corporateannouncement
+regulatory news
+regulatorynews
+regulatory announcements
+regulatoryannouncements
+market announcements
+marketannouncements
+asx announcements
+asxannouncements
+sens announcements
+sensannouncements
+rns announcements
+rnsannouncements
+presentations
+presentation
+meetings
+circulars
+circular
+who are we
+whoarewe
+download reports
+downloadreports
+internal documents
+internaldocuments
+company documents
+companydocuments
+company reports
+companyreports
+company information and reports
+company information reports
+companyinformationreports
+financial document library
+financialdocumentlibrary
+investor relations overview
+investorrelationsoverview
+investors relations overview
+investorsrelationsoverview
+investor centre home
+investorcentrehome
+about us overview
+aboutusoverview
+corporate governance and sustainability
+corporate governance sustainability
+corporategovernancesustainability
+
+# and can be recorded themselves if they hold a document. Passes only at depth <= keyword_hub_max_depth.
+investor
+investors
+investors relation
+investorsrelation
+investors relations
+investorsrelations
+investor relation
+investorrelation
+investor relations
+investorrelations
+investor relations home
+investorrelationshome
+investor centre
+investorcentre
+investor center
+investorcenter
+investor information
+investorinformation
+investor info
+investorinfo
+investor overview
+investoroverview
+investor hub
+investorhub
+investor portal
+investorportal
+investor resources
+investorresources
+investor kit
+investorkit
+investor kits
+investorkits
+investors overview
+investorsoverview
+investors and media
+investors media
+investorsandmedia
+investorsmedia
+investors and shareholders
+investors shareholders
+investorsandshareholders
+investorsshareholders
+investors and analysts
+investors analysts
+investorsandanalysts
+investorsanalysts
+investors and stakeholders
+investors stakeholders
+investorsandstakeholders
+investorsstakeholders
+investors and sustainability
+investors sustainability
+investorsandsustainability
+investorssustainability
+investors home
+investorshome
+investor home
+investorhome
+investor site
+investorsite
+investor zone
+investorzone
+investor page
+investorpage
+for investors
+forinvestors
+investors section
+investorssection
+ir
+ir home
+irhome
+ir hub
+irhub
+ir info
+irinfo
+ir overview
+iroverview
+ir library
+irlibrary
+ir documents
+irdocuments
+ir resources
+irresources
+shareholder
+shareholders
+shareholder information
+shareholderinformation
+shareholders information
+shareholdersinformation
+shareholder info
+shareholderinfo
+shareholder centre
+shareholdercentre
+shareholder center
+shareholdercenter
+shareholder resources
+shareholderresources
+shareholder documents
+shareholderdocuments
+shareholders and investors
+shareholders investors
+shareholdersandinvestors
+shareholdersinvestors
+shareholder services
+shareholderservices
+stockholder
+stockholders
+stockholder information
+stockholderinformation
+stakeholder
+stakeholders
+stakeholder information
+stakeholderinformation
+about
+about us
+aboutus
+about the company
+aboutthecompany
+about company
+aboutcompany
+about the group
+aboutthegroup
+about group
+aboutgroup
+about our company
+aboutourcompany
+about corporate
+aboutcorporate
+about us and governance
+about us governance
+aboutusgovernance
+who we are
+whoweare
+who we are and what we do
+who we are what we do
+company
+the company
+thecompany
+company information
+companyinformation
+company info
+companyinfo
+company profile
+companyprofile
+company overview
+companyoverview
+our company
+ourcompany
+our group
+ourgroup
+our organisation
+ourorganisation
+our organization
+ourorganization
+corporate
+corporate information
+corporateinformation
+corporate info
+corporateinfo
+corporate profile
+corporateprofile
+corporate overview
+corporateoverview
+corporate centre
+corporatecentre
+corporate center
+corporatecenter
+corporate affairs
+corporateaffairs
+corporate hub
+corporatehub
+corporate site
+corporatesite
+corporate documents
+corporatedocuments
+corporate publications
+corporatepublications
+corporate downloads
+corporatedownloads
+corporate library
+corporatelibrary
+corporate reports
+corporatereports
+corporate disclosures
+corporatedisclosures
+group
+group information
+groupinformation
+group overview
+groupoverview
+finance
+financial
+financials
+financial information
+financialinformation
+financial info
+financialinfo
+financial data
+financialdata
+financial documents
+financialdocuments
+financial library
+financiallibrary
+financial hub
+financialhub
+financial centre
+financialcentre
+financial center
+financialcenter
+financial and regulatory
+financial regulatory
+financialandregulatory
+financialregulatory
+financial publications
+financialpublications
+financial downloads
+financialdownloads
+financial resources
+financialresources
+financial overview
+financialoverview
+reports
+report
+reporting
+reports and publications
+reports publications
+reportsandpublications
+reportspublications
+reports and downloads
+reports downloads
+reportsanddownloads
+reportsdownloads
+reports and documents
+reports documents
+reportsanddocuments
+reportsdocuments
+reports and resources
+reports resources
+reportsandresources
+reportsresources
+reports centre
+reportscentre
+reports center
+reportscenter
+reports hub
+reportshub
+reports library
+reportslibrary
+reports section
+reportssection
+reporting centre
+reportingcentre
+reporting center
+reportingcenter
+reporting hub
+reportinghub
+reporting library
+reportinglibrary
+reporting resources
+reportingresources
+reporting and disclosures
+reporting disclosures
+reportinganddisclosures
+reportingdisclosures
+reporting and results
+reporting results
+reportingandresults
+reportingresults
+reporting and publications
+reporting publications
+reportingandpublications
+reportingpublications
+results
+results centre
+resultscentre
+results center
+resultscenter
+results hub
+resultshub
+results and publications
+results publications
+resultsandpublications
+resultspublications
+results and downloads
+results downloads
+resultsanddownloads
+resultsdownloads
+publications
+publication
+publications and reports
+publications reports
+publicationsandreports
+publicationsreports
+publications and downloads
+publications downloads
+publicationsanddownloads
+publicationsdownloads
+publications and resources
+publications resources
+publicationsandresources
+publicationsresources
+publications and documents
+publications documents
+publicationsanddocuments
+publicationsdocuments
+publications library
+publicationslibrary
+publications centre
+publicationscentre
+publications center
+publicationscenter
+downloads
+download
+download centre
+downloadcentre
+download center
+downloadcenter
+download area
+downloadarea
+download section
+downloadsection
+downloads centre
+downloadscentre
+downloads center
+downloadscenter
+downloads and publications
+downloads publications
+downloadsandpublications
+downloadspublications
+downloads and resources
+downloads resources
+downloadsandresources
+downloadsresources
+downloads and documents
+downloads documents
+downloadsanddocuments
+downloadsdocuments
+downloads and reports
+downloads reports
+downloadsandreports
+downloadsreports
+documents
+document
+document library
+documentlibrary
+documents library
+documentslibrary
+document centre
+documentcentre
+document center
+documentcenter
+documents centre
+documentscentre
+documents center
+documentscenter
+documents and downloads
+documents downloads
+documentsanddownloads
+documentsdownloads
+documents and reports
+documents reports
+documentsandreports
+documentsreports
+documents and policies
+documents policies
+documentsandpolicies
+documentspolicies
+documents and publications
+documents publications
+documentsandpublications
+documentspublications
+documents and filings
+documents filings
+documentsandfilings
+documentsfilings
+document hub
+documenthub
+document repository
+documentrepository
+documents repository
+documentsrepository
+library
+libraries
+resources
+resource
+resource centre
+resourcecentre
+resource center
+resourcecenter
+resource library
+resourcelibrary
+resources and downloads
+resources downloads
+resourcesanddownloads
+resourcesdownloads
+resources and reports
+resources reports
+resourcesandreports
+resourcesreports
+resources and publications
+resources publications
+resourcesandpublications
+resourcespublications
+resources and documents
+resources documents
+resourcesanddocuments
+resourcesdocuments
+archive
+archives
+archive and downloads
+archive downloads
+archiveanddownloads
+archivedownloads
+reports archive
+reportsarchive
+report archive
+reportarchive
+disclosures
+disclosure
+disclosures and reports
+disclosures reports
+disclosuresandreports
+disclosuresreports
+disclosure centre
+disclosurecentre
+disclosure center
+disclosurecenter
+disclosures and filings
+disclosures filings
+disclosuresandfilings
+disclosuresfilings
+public disclosures
+publicdisclosures
+regulatory
+regulatory information
+regulatoryinformation
+regulatory centre
+regulatorycentre
+regulatory center
+regulatorycenter
+regulatory hub
+regulatoryhub
+regulatory and legal
+regulatory legal
+regulatoryandlegal
+regulatorylegal
+regulatory disclosures hub
+regulatorydisclosureshub
+legal
+legal and regulatory
+legal regulatory
+legalandregulatory
+legalregulatory
+legal and governance
+legal governance
+legalandgovernance
+legalgovernance
+legal and corporate
+legal corporate
+legalandcorporate
+legalcorporate
+legal and policies
+legal policies
+legalandpolicies
+legalpolicies
+legal information
+legalinformation
+legal and compliance
+legal compliance
+legalandcompliance
+legalcompliance
+compliance
+compliance centre
+compliancecentre
+compliance center
+compliancecenter
+compliance hub
+compliancehub
+compliance and governance
+compliance governance
+complianceandgovernance
+compliancegovernance
+compliance documents
+compliancedocuments
+responsibility
+responsibilities
+responsible
+responsibility hub
+responsibilityhub
+responsibility and governance
+responsibility governance
+responsibilityandgovernance
+responsibilitygovernance
+our responsibility
+ourresponsibility
+our approach
+ourapproach
+our impact
+ourimpact
+our purpose
+ourpurpose
+our commitment
+ourcommitment
+our commitments
+ourcommitments
+our performance
+ourperformance
+our reports
+ourreports
+our policies
+ourpolicies
+our people and planet
+our people planet
+ourpeopleplanet
+people and planet
+people planet
+peopleandplanet
+peopleplanet
+planet
+impact
+impact hub
+impacthub
+impact centre
+impactcentre
+impact center
+impactcenter
+environment
+environmental
+social
+community
+communities
+society
+climate
+carbon
+overview
+overviews
+at a glance
+ataglance
+highlights
+key figures
+keyfigures
+data
+data and reports
+data reports
+dataandreports
+datareports
+data and downloads
+data downloads
+dataanddownloads
+datadownloads
+data centre
+datacentre
+data center
+datacenter
+policy hub
+policyhub
+policies hub
+policieshub
+policies library
+policieslibrary
+policies centre
+policiescentre
+policies center
+policiescenter
+policies section
+policiessection
+policy library
+policylibrary
+policy centre
+policycentre
+policy center
+policycenter
+policy resources
+policyresources
+policy downloads
+policydownloads
+policies and documents
+policies documents
+policiesanddocuments
+policiesdocuments
+policies and reports
+policies reports
+policiesandreports
+policiesreports
+policies and resources
+policies resources
+policiesandresources
+policiesresources
+policies and downloads
+policies downloads
+policiesanddownloads
+policiesdownloads
+policies and governance
+policies governance
+policiesandgovernance
+policiesgovernance
+policies and compliance
+policies compliance
+policiesandcompliance
+policiescompliance
+policies and standards
+policies standards
+policiesandstandards
+policiesstandards
+policies and commitments
+policies commitments
+policiesandcommitments
+policiescommitments
+policies and positions
+policies positions
+policiesandpositions
+policiespositions
+policies and principles
+policies principles
+policiesandprinciples
+policiesprinciples
+statements and policies
+statements policies
+statementsandpolicies
+statementspolicies
+statements and reports
+statements reports
+statementsandreports
+statementsreports
+statements and disclosures
+statements disclosures
+statementsanddisclosures
+statementsdisclosures
+statements and commitments
+statements commitments
+statementsandcommitments
+statementscommitments
+statements and positions
+statements positions
+statementsandpositions
+statementspositions
+sustainability hub
+sustainabilityhub
+sustainability centre
+sustainabilitycentre
+sustainability center
+sustainabilitycenter
+sustainability home
+sustainabilityhome
+sustainability downloads
+sustainabilitydownloads
+sustainability documents
+sustainabilitydocuments
+sustainability resources
+sustainabilityresources
+sustainability library
+sustainabilitylibrary
+sustainability publications
+sustainabilitypublications
+sustainability disclosures
+sustainabilitydisclosures
+esg hub
+esghub
+esg centre
+esgcentre
+esg center
+esgcenter
+esg home
+esghome
+esg resources
+esgresources
+esg library
+esglibrary
+esg downloads
+esgdownloads
+esg documents
+esgdocuments
+esg disclosures
+esgdisclosures
+esg reports and policies
+esg reports policies
+esgreportspolicies
+csr hub
+csrhub
+csr centre
+csrcentre
+csr center
+csrcenter
+csr home
+csrhome
+csr downloads
+csrdownloads
+csr documents
+csrdocuments
+csr resources
+csrresources
+csr library
+csrlibrary
+csr publications
+csrpublications
+csr disclosures
+csrdisclosures
+governance hub
+governancehub
+governance centre
+governancecentre
+governance center
+governancecenter
+governance home
+governancehome
+governance library
+governancelibrary
+governance downloads
+governancedownloads
+governance resources
+governanceresources
+governance and responsibility
+governance responsibility
+governanceandresponsibility
+governanceresponsibility
+governance and policies
+governance policies
+governanceandpolicies
+governancepolicies
+governance and leadership
+governance leadership
+governanceandleadership
+governanceleadership
+governance and management
+governance management
+governanceandmanagement
+governancemanagement
+leadership and governance
+leadership governance
+leadershipandgovernance
+leadershipgovernance
+corporate governance hub
+corporategovernancehub
+corporate governance resources
+corporategovernanceresources
+corporate governance library
+corporategovernancelibrary
+corporate governance documents
+corporategovernancedocuments
+board
+board and management
+board management
+boardandmanagement
+boardmanagement
+directors
+leadership and board
+leadership board
+leadershipandboard
+leadershipboard
+management and governance
+management governance
+managementandgovernance
+managementgovernance
+committee hub
+committeehub
