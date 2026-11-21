@@ -1,10 +1,11 @@
 
 from __future__ import annotations
-import argparse, asyncio, csv, hashlib, json, logging, os, re, signal, sqlite3, sys, time
+import argparse, asyncio, csv, hashlib, json, logging, os, re, signal, sqlite3, sys, time, unicodedata
+from collections import namedtuple
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlsplit, urlunsplit
 import aiohttp
 try:
     import tldextract
@@ -244,6 +245,439 @@ def strip_fragment(u):
 # --------------------------------------------------------------------------- #
 # Config
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# Keyword engine  (Keywords/ folder: Core, Hub, Hubchild, Block, Hardblock)
+# --------------------------------------------------------------------------- #
+# Every keyword file: one keyword/phrase per line, WHOLE-WORD matching, lines that start with '#' are
+# IGNORED (comments).  Only the section markers "# [regex]", "# [hardblock]", "# [lang_block]" are read.
+# A trailing '+' on a line ("annual report+") auto-adds the plural and the joined forms.
+KW_ROLES = ('core', 'hub', 'hubchild', 'block', 'hardblock')
+KW_SECTION_RX = re.compile(r'^#\s*\[\s*([A-Za-z0-9_ \-]+?)\s*\]\s*$')
+KW_NOISE_EXT = re.compile(r'\.(?:aspx?|html?|shtml|php\d?|jspx?|cfm|do|action)$', re.I)
+KW_NOISE_SEGMENTS = frozenset({'default', 'index', 'wps', 'portal', 'pages', 'page', 'content', 'web', 'home',
+                               'homepage', 'main', 'site', 'sites', 'p', 'html', 'php', 'aspx', 'jsp', 'htm'})
+KW_FILE_TOKENS = frozenset({'aspx', 'asp', 'html', 'htm', 'php', 'jsp', 'shtml'})
+KW_LOCALE_WORDS = frozenset({'global', 'international', 'intl', 'int', 'world', 'worldwide', 'ww', 'english', 'eng'})
+KW_LOCALE_RX = re.compile(r'^[a-z]{2}(?:[-_][a-z]{2,4})?$')
+KW_YEAR_SEG = re.compile(r'^(?:19|20)\d{2}(?:[-_/](?:19|20)?\d{2})?$')
+KW_TRAILING = frozenset({'year', 'en', 'eng', 'english'})
+# IR sites keep real reports under /media/ or /news-events/: such a parent does not veto a hub page
+# (the trap rules still probe-limit those sections). Products / careers / shop parents DO veto it.
+KW_SOFT_ANCESTOR = frozenset({'news', 'newsroom', 'press', 'media', 'events', 'event', 'calendar',
+                              'presentations', 'webcast', 'webcasts', 'conference', 'conferences'})
+KW_IGNORED_QUERY_KEYS = frozenset({'lang', 'locale', 'language', 'ref', 'referrer', 'source', 'sid', 'sessionid',
+                                   'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                                   'fbclid', 'gclid', 'gclsrc', 'msclkid', '_ga', '_gl', 'mkt_tok', 'cid',
+                                   '_hsenc', '_hsmi', 'wt_mc', 'trk', 'tracking'})
+Decision = namedtuple('Decision', 'allow kind rule')
+KW_OFF = Decision(True, 'off', '')
+# crawl priority from the keyword verdict (lower = earlier)
+KW_RANK = {'core': 0, 'regex': 0, 'hubchild': 1, 'hub': 1, 'root': 3}
+_LATIN_CACHE = {}
+
+
+def _is_latin_letter(ch):
+    v = _LATIN_CACHE.get(ch)
+    if v is None:
+        try:
+            v = unicodedata.name(ch).startswith('LATIN')
+        except ValueError:
+            v = False
+        _LATIN_CACHE[ch] = v
+    return v
+
+
+def non_latin_ratio(text):
+    """(share of non-Latin letters, number of letters). Accented Latin (e, a, u ...) counts as Latin."""
+    letters = [c for c in (text or '') if c.isalpha()]
+    if not letters:
+        return 0.0, 0
+    bad = sum(1 for c in letters if not _is_latin_letter(c))
+    return bad / len(letters), len(letters)
+
+
+def _plural(w):
+    if w.endswith('y') and not w.endswith(('ay', 'ey', 'oy', 'uy')):
+        return w[:-1] + 'ies'
+    return w if w.endswith('s') else w + 's'
+
+
+def expand_plus(line):
+    """'annual report+' -> annual report, annual reports, annualreport, annualreports. Others unchanged."""
+    s = re.sub(r'\s+', ' ', line.strip().lower())
+    if not s.endswith('+'):
+        return [s]
+    base = s.rstrip('+').strip()
+    parts = base.split(' ')
+    plural = ' '.join(parts[:-1] + [_plural(parts[-1])])
+    forms = [base, plural]
+    if len(parts) > 1:
+        forms += [''.join(parts), ''.join(parts[:-1]) + _plural(parts[-1])]
+    return list(dict.fromkeys(forms))
+
+
+class PhraseSet:
+    """Whole-token phrase lookup, longest phrase first."""
+    def __init__(self, phrases=()):
+        self.by_len = {}
+        for ph in phrases:
+            self.by_len.setdefault(len(ph), set()).add(ph)
+        self.lengths = sorted(self.by_len, reverse=True)
+
+    def __len__(self):
+        return sum(len(v) for v in self.by_len.values())
+
+    def __contains__(self, ph):
+        return tuple(ph) in self.by_len.get(len(ph), ())
+
+    def phrases(self):
+        return [ph for bucket in self.by_len.values() for ph in bucket]
+
+    def find(self, tokens):
+        n = len(tokens)
+        for size in self.lengths:
+            bucket = self.by_len[size]
+            for i in range(n - size + 1):
+                if tuple(tokens[i:i + size]) in bucket:
+                    return ' '.join(tokens[i:i + size])
+        return None
+
+    def mask(self, tokens):
+        """Remove every multi-word phrase from the token list. Returns (remaining tokens, removed phrases)."""
+        sizes = [s for s in self.lengths if s > 1]
+        if not sizes:
+            return list(tokens), []
+        out, removed, i, n = [], [], 0, len(tokens)
+        while i < n:
+            for size in sizes:
+                if i + size <= n and tuple(tokens[i:i + size]) in self.by_len[size]:
+                    removed.append(' '.join(tokens[i:i + size]))
+                    i += size
+                    break
+            else:
+                out.append(tokens[i])
+                i += 1
+        return out, removed
+
+
+def read_keyword_file(path):
+    """{'section': [lines]}. Lines starting with '#' are comments, except '# [section]' markers."""
+    sections, cur = {}, 'main'
+    with open(path, encoding='utf-8-sig', errors='ignore') as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith('#'):
+                m = KW_SECTION_RX.match(line)
+                if m:
+                    cur = re.sub(r'[\s\-]+', '_', m.group(1).strip().lower())
+                continue
+            line = re.sub(r'\s+#.*$', '', line).strip()      # inline comment
+            if line:
+                sections.setdefault(cur, []).append(line)
+    return sections
+
+
+def find_keyword_dir(setting):
+    """Locate the keywords folder; case-insensitive (GitHub Actions runs on Linux)."""
+    if not setting:
+        return None
+    p = Path(setting)
+    cands = [p] if p.is_absolute() else [Path.cwd() / p, Path(__file__).resolve().parent / p]
+    for c in cands:
+        if c.is_dir():
+            return c
+        if c.parent.is_dir():
+            for child in c.parent.iterdir():
+                if child.is_dir() and child.name.lower() == c.name.lower():
+                    return child
+    return None
+
+
+def find_role_file(directory, role):
+    """Block.txt / block.txt / Hardblock / keywords_core.txt / Hub_Child.txt all resolve to their role."""
+    for f in sorted(directory.iterdir()):
+        if not f.is_file():
+            continue
+        stem = f.name.lower()
+        while True:
+            for suffix in ('.txt', '.csv', '.lst', '.list'):
+                if stem.endswith(suffix):
+                    stem = stem[:-len(suffix)]
+                    break
+            else:
+                break
+        stem = re.sub(r'^keywords?[_\- ]+', '', stem)
+        if re.sub(r'[_\- ]+', '', stem) == role:
+            return f
+    return None
+
+
+class KeywordEngine:
+    """Decides, for one link, whether the crawler should follow it.
+
+    Order (first rule that matches wins):
+      1 non-English language folder / non-Latin text          -> REJECT   (hardblock file, [lang_block])
+      2 hard-block phrase or word                             -> REJECT   (hardblock file)
+      3 core word / phrase / regex                            -> FOLLOW   (core file)
+      4 last folder is a hub, shallow, no blocked parent      -> FOLLOW   (hub file)
+      5 block word / phrase                                   -> REJECT   (block file)
+      6 under a hub AND last folder is a hub-child word       -> FOLLOW   (hubchild file)
+      7 nothing matched                                       -> REJECT"""
+
+    def __init__(self):
+        empty = PhraseSet()
+        self.core = self.hub = self.hubchild = self.block = self.hardblock = empty
+        self.regex, self.lang, self.hard_single = [], set(), set()
+        self.files, self.warnings, self.directory = {}, [], None
+        self.active = False
+        self.hub_max_depth, self.use_text, self.text_max_words = 3, True, 8
+        self._parent_cache = {}
+
+    # ---------------- loading ----------------
+    @classmethod
+    def load(cls, setting, enabled=True):
+        eng = cls()
+        if not enabled:
+            eng.warnings.append('keyword filter disabled in config (keyword_filter=false)')
+            return eng
+        directory = find_keyword_dir(setting)
+        if directory is None:
+            eng.warnings.append('Keywords folder %r not found (looked in the working directory and next to the '
+                                'script): keyword filter is OFF, legacy rules are used' % setting)
+            return eng
+        eng.directory = directory
+        for role in KW_ROLES:
+            f = find_role_file(directory, role)
+            if f is None:
+                eng.warnings.append('no file found for %r in %s' % (role, directory))
+                continue
+            eng.files[role] = f.name
+            eng._load_role(role, f)
+        eng._finish()
+        return eng
+
+    @staticmethod
+    def _phrases(lines):
+        out = set()
+        for line in lines:
+            for form in expand_plus(line):
+                toks = tuple(canon(form))
+                if toks:
+                    out.add(toks)
+        return out
+
+    def _load_role(self, role, path):
+        try:
+            sections = read_keyword_file(path)
+        except OSError as exc:
+            self.warnings.append('%s: cannot read %s (%s)' % (role, path.name, exc))
+            return
+        regexes, lang, lines = [], [], []
+        for name, items in sections.items():
+            if name == 'regex':
+                regexes += items
+            elif 'lang' in name:
+                lang += items
+            else:
+                lines += items
+        if role == 'core':                       # a line that starts with ^ is a regex wherever it sits
+            regexes += [x for x in lines if x.startswith('^')]
+            lines = [x for x in lines if not x.startswith('^')]
+        for rx in regexes:
+            try:
+                self.regex.append(re.compile(rx, re.I))
+            except re.error as exc:
+                self.warnings.append('core: invalid regex %r (%s)' % (rx, exc))
+        setattr(self, role, PhraseSet(self._phrases(lines)))
+        if role == 'hardblock':
+            for item in lang:
+                self.lang.add(item.strip().lower().replace('_', '-'))
+
+    def _finish(self):
+        self.hard_single = {ph[0] for ph in self.hardblock.phrases() if len(ph) == 1}
+        self.active = len(self.core) > 0
+        if not self.active:
+            self.warnings.append('core file is empty or missing: keyword filter is OFF')
+            return
+        core = set(self.core.phrases())
+        for a, b, label in ((core, set(self.hardblock.phrases()), 'core+hardblock'),
+                            (core, set(self.block.phrases()), 'core+block'),
+                            (set(self.hub.phrases()), set(self.block.phrases()), 'hub+block')):
+            both = sorted(' '.join(x) for x in (a & b))
+            if both:
+                self.warnings.append('%s overlap (%s): %s%s' % (label, len(both), ', '.join(both[:6]),
+                                                                ' ...' if len(both) > 6 else ''))
+        shadow = sorted({' '.join(ph) for ph in core if any(t in self.hard_single for t in ph)})
+        if shadow:
+            self.warnings.append('core phrases that contain a hard-block word can never match (%s): %s' %
+                                 (len(shadow), ', '.join(shadow[:6])))
+
+    def describe(self):
+        lines = ['Keyword engine: %s' % ('ACTIVE from ' + str(self.directory) if self.active else 'OFF')]
+        for role in KW_ROLES:
+            if role in self.files:
+                extra = ''
+                if role == 'core':
+                    extra = ' + %s regex' % len(self.regex)
+                if role == 'hardblock':
+                    extra = ' + %s language folders' % len(self.lang)
+                lines.append('  %-9s %-14s %5s entries%s' % (role, self.files[role], len(getattr(self, role)), extra))
+        lines += ['  WARNING: ' + w for w in self.warnings]
+        return '\n'.join(lines)
+
+    # ---------------- matching ----------------
+    def _known_word(self, word):
+        for part in re.split(r'[-_]', word):
+            t = (part,)
+            if any(t in s for s in (self.core, self.hub, self.hubchild, self.block, self.hardblock)):
+                return True
+        return False
+
+    def _segments(self, path, seed_lang):
+        segs = [KW_NOISE_EXT.sub('', s) for s in path.lower().split('/') if s]
+        lang_hit = None
+        if segs:
+            first = segs[0].replace('_', '-')
+            if first in self.lang and first != seed_lang:
+                lang_hit = first
+        for _ in range(2):                       # /en/  /global/en/  /us/  are transparent
+            if not segs:
+                break
+            f = segs[0].replace('_', '-')
+            if f == seed_lang or f in KW_LOCALE_WORDS:
+                segs = segs[1:]
+            elif KW_LOCALE_RX.match(f) and not self._known_word(f) and f not in self.lang:
+                segs = segs[1:]
+            else:
+                break
+        segs = [s for s in segs if s not in KW_NOISE_SEGMENTS]
+        while segs and (KW_YEAR_SEG.match(segs[-1]) or segs[-1] in KW_TRAILING or re.fullmatch(r'\d{1,2}', segs[-1])):
+            segs.pop()
+        return segs, lang_hit
+
+    @staticmethod
+    def _clean(tokens):
+        tk = [t for t in tokens if t not in KW_FILE_TOKENS]
+        while len(tk) > 1 and (re.fullmatch(r'\d', tk[-1]) or tk[-1] in KW_TRAILING):
+            tk.pop()
+        return tk
+
+    def _parent_is_hub(self, parent_url, seed_lang):
+        if not parent_url:
+            return False
+        cached = self._parent_cache.get(parent_url)
+        if cached is None:
+            segs, _ = self._segments(unquote(urlsplit(parent_url).path or ''), seed_lang)
+            cached = bool(segs) and tuple(self._clean(canon(segs[-1]))) in self.hub and len(segs) <= self.hub_max_depth
+            self._parent_cache[parent_url] = cached
+        return cached
+
+    def _blocked_ancestor(self, ancestors):
+        for st in ancestors:
+            if tuple(st) in self.hub or KW_SOFT_ANCESTOR.intersection(st):
+                continue
+            remaining, _ = self.hubchild.mask(st)
+            hit = self.block.find(remaining)
+            if hit:
+                return hit
+        return None
+
+    def decide(self, url, text='', parent_url=None, seed_lang=None):
+        if not self.active:
+            return KW_OFF
+        p = urlsplit(url or '')
+        path = unquote(p.path or '')
+        if any(c.isalpha() and not _is_latin_letter(c) for c in path):
+            return Decision(False, 'lang', 'non-Latin path')
+        anchor = (text or '').strip()
+        ratio, letters = non_latin_ratio(anchor)
+        if letters >= 3 and ratio > 0.5:
+            return Decision(False, 'lang', 'non-Latin link text')
+        words = canon(anchor) if (self.use_text and anchor and len(canon(anchor)) <= self.text_max_words) else []
+        segs, lang_hit = self._segments(path, seed_lang)
+        if lang_hit:
+            return Decision(False, 'lang', 'folder:' + lang_hit)
+        qtok, query_signal = [], False
+        for k, v in parse_qsl(p.query, keep_blank_values=False):
+            kl = k.lower()
+            if kl in KW_IGNORED_QUERY_KEYS or (kl in PKEYS and v.isdigit()):
+                continue                         # tracking / locale / page numbers say nothing
+            vt = canon(unquote(v))
+            if vt and all(t in KW_TRAILING or re.fullmatch(r'[a-z]{2}', t) for t in vt):
+                continue                         # ?from=en
+            query_signal = True                  # a dynamic page (?id=77) is opaque unless a keyword shows
+            qtok += [t for t in vt if not t.isdigit()]   # ?page=annual-report  /  ?section=governance
+        if p.fragment and p.fragment[0] in '/!?':
+            ftok = canon(unquote(p.fragment))      # SPA route (#/financial); a bare '#!' says nothing
+            if ftok:
+                query_signal = True
+                qtok += ftok
+        if not segs and not query_signal:
+            return Decision(True, 'root', 'site root')
+        seg_tokens = [self._clean(canon(s)) for s in segs]
+        all_t = [t for st in seg_tokens for t in st] + qtok + words
+        # 2 hard block (multi-word phrases are removed first so 'cookie policy' can never feed the word 'policy')
+        masked, removed = self.hardblock.mask(all_t)
+        if removed:
+            return Decision(False, 'hardblock', removed[0])
+        for t in masked:
+            if t in self.hard_single:
+                return Decision(False, 'hardblock', t)
+        # 3 core
+        hit = self.core.find(masked)
+        if hit:
+            return Decision(True, 'core', hit)
+        for t in masked:
+            for rx in self.regex:
+                if rx.search(t):
+                    return Decision(True, 'regex', rx.pattern[:40])
+        if not segs:
+            return Decision(False, 'nosignal', 'opaque query')
+        last, ancestors = tuple(seg_tokens[-1]), seg_tokens[:-1]
+        # 4 hub (listing page): whole last folder, shallow, and no blocked folder above it
+        if last in self.hub and len(segs) <= self.hub_max_depth and not self._blocked_ancestor(ancestors):
+            return Decision(True, 'hub', ' '.join(last))
+        # 5 block (compound hubchild phrases such as 'events and presentations' are protected first)
+        protected, _ = self.hubchild.mask(masked)
+        hit = self.block.find(protected)
+        if hit:
+            return Decision(False, 'block', hit)
+        # 6 hub child
+        if any(tuple(a) in self.hub for a in ancestors) or self._parent_is_hub(parent_url, seed_lang):
+            hit = self.hubchild.find(list(last)) or (self.hubchild.find(words) if words else None)
+            if hit:
+                return Decision(True, 'hubchild', hit)
+        return Decision(False, 'nosignal', '')
+
+
+_KW_CACHE = {}
+
+
+def get_keyword_engine(cfg):
+    """One shared, cached engine per keywords folder."""
+    directory = find_keyword_dir(cfg.keywords_dir) if cfg.keyword_filter else None
+    stamp = None
+    if directory is not None:
+        stamp = (str(directory.resolve()), tuple(sorted((f.name, f.stat().st_mtime_ns)
+                                                         for f in directory.iterdir() if f.is_file())))
+    key = (cfg.keyword_filter, cfg.keywords_dir, stamp)
+    eng = _KW_CACHE.get(key)
+    if eng is None:
+        eng = KeywordEngine.load(cfg.keywords_dir, cfg.keyword_filter)
+        _KW_CACHE.clear()
+        _KW_CACHE[key] = eng
+        for line in eng.describe().splitlines():
+            (logging.warning if 'WARNING' in line or 'OFF' in line else logging.info)(line)
+    eng.hub_max_depth = max(1, cfg.keyword_hub_max_path_depth)
+    eng.use_text = cfg.keyword_match_text
+    eng.text_max_words = max(1, cfg.keyword_text_max_words)
+    eng._parent_cache.clear()
+    return eng
+
+
+
 @dataclass
 class Config:
     # ---- bounded expansion ----
@@ -306,6 +740,19 @@ class Config:
     export_checkpoint_pages: int = 0  # SQLite checkpoints continuously; CSV export at completion
     recover_orphaned_pages: bool = True
     user_agent: str = 'Mozilla/5.0 (compatible; WebsiteURLCollector/5.0)'
+    # ---- keyword engine: Keywords/ folder (Core, Hub, Hubchild, Block, Hardblock) ----
+    keyword_filter: bool = True              # False = ignore the Keywords folder, legacy rules only
+    keywords_dir: str = 'Keywords'           # folder name is matched case-insensitively
+    keyword_match_text: bool = True          # also match short link text (nav labels), not only the URL path
+    keyword_text_max_words: int = 8          # link text longer than this is ignored (marketing sentences)
+    keyword_hub_max_path_depth: int = 3      # a hub folder counts only while the URL path is this shallow
+    keyword_min_homepage_links: int = 4      # fewer homepage links than this survive -> relaxed fallback
+    keyword_fallback_max_links: int = 25     # ... and at most this many legacy-scored links are added back
+    # ---- trap limits: news / blog / events / shop sections and pagination ----
+    trap_rules: bool = True
+    trap_probe_pages: int = 4                # zero-document pages allowed in a news/blog/shop section
+    pagination_grace_pages: int = 2          # link pages followed freely; later ones need a document
+    max_link_pages: int = 6                  # hard ceiling for /page/N or ?page=N links
     robots_agent: str = 'websiteurlcollector'
 
     @classmethod
@@ -368,6 +815,17 @@ class Config:
             'export_checkpoint_pages': ('EXPORT_CHECKPOINT_PAGES', int),
             'recover_orphaned_pages': ('RECOVER_ORPHANED_PAGES', bool),
             'user_agent': ('USER_AGENT', str),
+            'keyword_filter': ('KEYWORD_FILTER', bool),
+            'keywords_dir': ('KEYWORDS_DIR', str),
+            'keyword_match_text': ('KEYWORD_MATCH_TEXT', bool),
+            'keyword_text_max_words': ('KEYWORD_TEXT_MAX_WORDS', int),
+            'keyword_hub_max_path_depth': ('KEYWORD_HUB_MAX_PATH_DEPTH', int),
+            'keyword_min_homepage_links': ('KEYWORD_MIN_HOMEPAGE_LINKS', int),
+            'keyword_fallback_max_links': ('KEYWORD_FALLBACK_MAX_LINKS', int),
+            'trap_rules': ('TRAP_RULES', bool),
+            'trap_probe_pages': ('TRAP_PROBE_PAGES', int),
+            'pagination_grace_pages': ('PAGINATION_GRACE_PAGES', int),
+            'max_link_pages': ('MAX_LINK_PAGES', int),
         }
         for attr, (name, typ) in mapping.items():
             setattr(c, attr, env(name, getattr(c, attr), typ))
@@ -381,6 +839,13 @@ class Config:
         c.max_depth = max(0, c.max_depth)
         c.max_pages_per_website = max(1, c.max_pages_per_website)
         c.section_probe_pages = max(3, c.section_probe_pages)
+        c.trap_probe_pages = max(2, c.trap_probe_pages)
+        c.pagination_grace_pages = max(1, c.pagination_grace_pages)
+        c.max_link_pages = max(2, c.max_link_pages)
+        c.keyword_hub_max_path_depth = max(1, c.keyword_hub_max_path_depth)
+        c.keyword_text_max_words = max(1, c.keyword_text_max_words)
+        c.keyword_min_homepage_links = max(0, c.keyword_min_homepage_links)
+        c.keyword_fallback_max_links = max(0, c.keyword_fallback_max_links)
         c.max_low_priority_children_per_page = max(0, c.max_low_priority_children_per_page)
         c.max_minutes_per_website = max(1, c.max_minutes_per_website)
         c.stall_minutes = max(1, c.stall_minutes)
@@ -474,6 +939,9 @@ class Collector:
         seed_path = urlsplit(self.seed).path or '/'
         m = re.match(r'^/([a-z]{2}(?:-[a-z]{2})?)(?:/|$)', seed_path, re.I)
         self.language_prefix = ('/' + m.group(1).lower() + '/') if m else None
+        self.seed_lang = m.group(1).lower().replace('_', '-') if m else None   # the seed's own locale is never rejected
+        self.kw = get_keyword_engine(cfg)
+        self.kw_stats, self.kw_logged, self.kw_note, self.kw_held = {}, set(), {}, {}
         self.out = output_dir_for(self.seed, out_root or Path('.'))
         self.out.mkdir(parents=True, exist_ok=True)
         self.processed_since_export = 0
@@ -728,6 +1196,8 @@ class Collector:
             segs = segs[1:]
         if len(segs) >= 2 and segs[0].lower() in ECOM_FOLDERS:
             return True
+        if self.kw.active:          # Keywords/ files decide everything else (see keyword_gate)
+            return False
         for seg in segs[:-1]:
             toks = canon(seg)
             if match_vocab(toks, V_NEGATIVE) and not match_vocab(toks, V_STRONG) and \
@@ -742,7 +1212,142 @@ class Collector:
         strong, negative, _, dochub = self.signals(u, text)
         return negative and not strong and not dochub
 
-    def priority(self, u, text=''):
+    # ---------------- keyword gate ----------------
+    def path_segments(self, u):
+        segs = [s for s in (urlsplit(u or '').path or '').lower().split('/') if s]
+        if segs and self.language_prefix and '/' + segs[0] + '/' == self.language_prefix:
+            segs = segs[1:]
+        return segs
+
+    def keyword_gate(self, url, text='', parent_url=None):
+        return self.kw.decide(url, text, parent_url, self.seed_lang)
+
+    def kw_filter(self, n, text, parent, depth, source):
+        """-> (allowed, Decision). Every URL is counted / audited once, however often it is seen."""
+        d = self.keyword_gate(n, text, parent)
+        if n not in self.kw_logged:
+            self.kw_logged.add(n)
+            key = ('pass_' if d.allow else 'rej_') + d.kind
+            self.kw_stats[key] = self.kw_stats.get(key, 0) + 1
+            if d.allow:
+                if d.rule:
+                    self.kw_note[n] = d.kind + ':' + d.rule
+            else:
+                strong, negative, gateway, dochub = self.signals(n, text)
+                self.audit_priority(n, parent, text, source, depth, 9, strong, negative, gateway, dochub,
+                                    'IGNORED', 'KEYWORD_' + d.kind.upper() + (':' + d.rule if d.rule else ''))
+        return d.allow, d
+
+    def queue_homepage_links(self, parent, all_links):
+        """Homepage menu links: judged by the keyword engine, rejected internal ones are remembered so the
+        sparse-site fallback can bring back the ones the legacy scoring likes."""
+        for child, label, _ in all_links:
+            n = self.norm(child, parent)
+            if self.kw.active and n and self.internal(child) and not self.filelike(child) \
+                    and self.policy(child)[0]:
+                _, text = split_label(label)
+                ok, d = self.kw_filter(n, text, parent, 1, 'homepage')
+                if not ok:
+                    self.kw_held.setdefault(n, (child, label, text, d))
+                    continue
+                self.add(child, parent, label, 1, self.priority(n, text, d), 'homepage')
+            else:
+                self.add(child, parent, label, 1, source='homepage')
+
+    def homepage_fallback(self):
+        """Sparse-site safety net: if the keyword filter left (almost) nothing to crawl, add back the
+        homepage links the legacy scoring rates as ESG / document / gateway. Never lang or hard-block."""
+        if not self.kw.active or not self.kw_held:
+            return
+        have = self.db.execute("SELECT COUNT(*) FROM pages WHERE depth=1 AND status!='SKIPPED'").fetchone()[0]
+        if have >= self.cfg.keyword_min_homepage_links:
+            return
+        added = 0
+        for n, (child, label, text, d) in list(self.kw_held.items()):
+            if added >= self.cfg.keyword_fallback_max_links:
+                break
+            if d.kind in ('lang', 'hardblock'):
+                continue
+            strong, negative, gateway, dochub = self.signals(n, text)
+            if not (strong or dochub or gateway) or self.path_blocked(n, text):
+                continue
+            self.kw_note[n] = 'fallback'
+            if self.add(child, self.seed, label, 1, self.priority(n, text), 'homepage'):
+                added += 1
+        if added:
+            self.expansion['keyword_fallback'] = self.expansion.get('keyword_fallback', 0) + added
+            logging.warning('Keyword filter left only %s homepage link(s); fallback added %s: %s',
+                            have, added, self.seed)
+
+    # ---------------- trap sections / pagination limits ----------------
+    def exempt_tokens(self, toks):
+        if match_vocab(toks, V_DOC_HUB):
+            return True
+        if self.kw.active:
+            return self.kw.core.find(toks) is not None
+        return match_vocab(toks, V_STRONG)
+
+    def trap_info(self, u):
+        """(index of the news / blog / event / shop folder, exempt). exempt=True when a core or document-hub
+        word sits in another folder (/media/annual-reports, /sustainability/news/..)."""
+        segs = self.path_segments(u)
+        if len(segs) >= 2 and segs[0] in ECOM_FOLDERS:
+            return 0, False
+        for i, s in enumerate(segs[:3]):
+            if not match_vocab(canon(s), V_SOFT):
+                continue
+            keep = [x for j, x in enumerate(segs[:3]) if j != i]
+            if keep and len(canon(keep[-1])) >= 4 and keep[-1] == segs[-1] and len(segs) > i + 1:
+                keep = keep[:-1]        # a long last slug is an article title: ignore its words
+            return i, bool(self.exempt_tokens(canon(' '.join(keep))))
+        return None, False
+
+    def trap_index(self, u):
+        i, exempt = self.trap_info(u)
+        return None if exempt else i
+
+    def in_trap_section(self, u):
+        return self.trap_index(u) is not None
+
+    def soft_section(self, u):
+        """News / blog / events folder INSIDE an ESG section (/sustainability/news/..): never blocked, but
+        a long cross-linked archive there is probe-limited (2 x trap_probe_pages zero-document pages)."""
+        i, exempt = self.trap_info(u)
+        return i if exempt and i is not None else None
+
+    def is_trap_article(self, u):
+        """Detail page inside a trap section (listing pages and year / page folders are not)."""
+        i = self.trap_index(u)
+        if i is None:
+            return False
+        rest = [s for s in self.path_segments(u)[i + 1:]
+                if not re.fullmatch(r'page|pg|p|\d{1,3}|(?:19|20)\d{2}', s)]
+        return bool(rest)
+
+    def page_number(self, u):
+        p = urlsplit(u or '')
+        n = path_page_num(p.path)
+        if n is not None:
+            return n
+        for k, v in parse_qsl(p.query):
+            if k.lower() in PKEYS and v.isdigit():
+                return int(v)
+        return None
+
+    def allow_pagination(self, parent, child, found):
+        """Follow only the next link page. Pages up to pagination_grace_pages are followed freely, later
+        ones only while the current page held documents. Never beyond max_link_pages."""
+        cur = self.page_number(parent) or 0
+        nxt = self.page_number(child)
+        if nxt is None or nxt <= cur or nxt > max(cur, 1) + 1 or nxt > self.cfg.max_link_pages:
+            return False
+        return cur < self.cfg.pagination_grace_pages or bool(found)
+
+    def priority(self, u, text='', kw=None):
+        if self.cfg.trap_rules and self.in_trap_section(u):
+            return 8
+        if kw is not None and kw.allow and kw.kind in KW_RANK:
+            return KW_RANK[kw.kind]
         # Detail pages (product / article) only get high priority from their real
         # folders, not from the product or article title.
         if self.is_detail(u):
@@ -788,7 +1393,7 @@ class Collector:
                 return None
         return f'{p.scheme}://{p.netloc}/' + '/'.join(lang + parts[:keep]) + '/'
 
-    def section_is_dead(self, u):
+    def section_is_dead(self, u, probe=None):
         """Prefix once section_probe_pages pages under the same section were processed
         and none of them held a document; otherwise None."""
         prefix = self.section_prefix(u)
@@ -798,7 +1403,7 @@ class Collector:
             "SELECT COUNT(*), COALESCE(SUM(document_found),0) FROM pages "
             "WHERE status='PROCESSED' AND substr(normalized_url,1,?)=?",
             (len(prefix), prefix)).fetchone()
-        return prefix if (done >= self.cfg.section_probe_pages and hits == 0) else None
+        return prefix if (done >= (probe or self.cfg.section_probe_pages) and hits == 0) else None
 
     # ---------------- counters / budgets ----------------
     def increment_counter(self, name, amount=1):
@@ -910,7 +1515,7 @@ class Collector:
             self.increment_counter('esg_priority')
         decision = 'QUEUED' if status == 'DISCOVERED' else 'SKIPPED'
         self.audit_priority(n, parent, text, source, depth, priority, strong, negative,
-                            gateway, dochub, decision, err or 'ACCEPTED')
+                            gateway, dochub, decision, err or ('ACCEPTED' + (':' + self.kw_note[n] if n in self.kw_note else '')))
         logging.info('Discovered [%s] p=%s d=%s src=%s %s', status, priority, depth, source, open_url)
         return status == 'DISCOVERED'
 
@@ -930,8 +1535,13 @@ class Collector:
                 url = row['normalized_url']
                 strong, negative, gateway, dochub = self.signals(url, row['link_text'] or '')
                 dead = None
-                if row['depth'] > 1 and not dochub and not self.cfg.coverage_mode:
-                    dead = self.section_is_dead(url)
+                if row['depth'] > 1:
+                    if self.cfg.trap_rules and self.in_trap_section(url):
+                        dead = self.section_is_dead(url, self.cfg.trap_probe_pages)
+                    elif self.cfg.trap_rules and self.soft_section(url) is not None:
+                        dead = self.section_is_dead(url, self.cfg.trap_probe_pages * 2)
+                    elif not dochub and not self.cfg.coverage_mode:
+                        dead = self.section_is_dead(url)
                 if dead:
                     self.db.execute(
                         "UPDATE pages SET status='SKIPPED',page_type='SKIPPED',error_message=? WHERE id=?",
@@ -1022,7 +1632,10 @@ class Collector:
                     continue
                 if self.path_blocked(n):
                     continue
-                rank = self.priority(n)
+                ok_kw, kwd = self.kw_filter(n, '', self.seed, 2, 'sitemap')
+                if not ok_kw:
+                    continue
+                rank = self.priority(n, '', kwd)
                 if rank > 2:
                     if neutral_added >= self.cfg.max_neutral_sitemap_urls:
                         continue
@@ -1367,8 +1980,8 @@ class Collector:
         if homepage:
             # Queue the rendered menu state before any potentially slow PDF probes.
             # add() records even out-of-scope links, but never queues them for visits.
-            for child, label, _ in all_links:
-                self.add(child, parent, label, 1, source='homepage')
+            # v7: internal links go through the Keywords/ engine first (see queue_homepage_links).
+            self.queue_homepage_links(parent, all_links)
         documents, seen_docs = [], set()
         cap = self.cfg.max_documents_per_page
         # Network responses are audit-only; DOM evidence is required.
@@ -1404,6 +2017,9 @@ class Collector:
             logging.info('... plus %s more document(s) on %s', len(documents) - 20, parent)
         if homepage:
             return documents, all_links
+        if self.cfg.trap_rules and self.is_trap_article(parent):
+            self.increment_counter('trap_article_not_followed')
+            return documents, all_links      # keep its documents, do not follow its links
         # 2) Child discovery.
         candidates, seen = [], set()
         parent_family = self.url_family(parent)
@@ -1423,9 +2039,19 @@ class Collector:
                 continue
             _, text = split_label(raw_text)
             strong, negative, gateway, dochub = self.signals(n, text)
-            rank = self.priority(n, text)
             if self.is_pagination(child, parent, raw_text):
+                rank = self.priority(n, text)
+                if self.cfg.trap_rules and not self.allow_pagination(parent, n, documents):
+                    self.increment_counter('pagination_gated')
+                    self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
+                                        gateway, dochub, 'IGNORED', 'PAGINATION_LIMIT')
+                    continue
                 rank = min(rank, 1)
+            else:
+                ok_kw, kwd = self.kw_filter(n, text, parent, depth + 1, 'link')
+                if not ok_kw:
+                    continue
+                rank = self.priority(n, text, kwd)
             if self.path_blocked(n, text):
                 self.increment_counter('negative')
                 self.audit_priority(n, parent, text, 'link', depth + 1, rank, strong, negative,
@@ -1547,6 +2173,7 @@ class Collector:
         except PWError:
             seen_links = set()
         current = base_url
+        seen_doc_urls = set()
         for _ in range(max(0, self.cfg.max_pagination_pages - 1)):
             if self.out_of_time(deadline):
                 break
@@ -1614,7 +2241,11 @@ class Collector:
             signatures.add(sig)
             checked += 1
             self.stats['pagination_states'] += 1
-            _, links2 = await on_change('pagination:' + str(checked)) if on_change else ([], await self.links(p))
+            docs2, links2 = await on_change('pagination:' + str(checked)) if on_change else ([], await self.links(p))
+            fresh = {d[0] for d in docs2} - seen_doc_urls
+            seen_doc_urls |= {d[0] for d in docs2}
+            if on_change and not fresh:
+                break           # clicked 'Next' but no new document appeared: stop
             new_links = {u for u, _, _ in links2} - seen_links
             seen_links |= new_links
             # Document-only changes can be meaningful even if navigation links are unchanged.
@@ -1820,22 +2451,29 @@ class Collector:
                     return docs, links
 
                 await capture()
-                scan_before = perf['scan']
-                t0 = time.perf_counter()
-                if await self.cookie(p):
-                    await self.settle(p, perf)
-                    await capture('after_consent')
-                await self.reveal(p, capture, homepage=depth == 0)
-                perf['interaction'] += max(0, time.perf_counter() - t0 - (perf['scan'] - scan_before))
-                deadline = time.monotonic() + self.cfg.expansion_budget_seconds
+                article = self.cfg.trap_rules and self.is_trap_article(u)
                 pdet, checked, limit = 0, 1, 0
-                if self.is_detail(u):
-                    self.expansion['detail_pagination_skipped'] += 1
+                if article:
+                    self.increment_counter('trap_article_no_interaction')
                 else:
-                    pdet, checked, limit = await self.crawl_pagination(
-                        p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
-                    await self.crawl_load_more(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
-                await self.crawl_year_options(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                    scan_before = perf['scan']
+                    t0 = time.perf_counter()
+                    if await self.cookie(p):
+                        await self.settle(p, perf)
+                        await capture('after_consent')
+                    await self.reveal(p, capture, homepage=depth == 0)
+                    perf['interaction'] += max(0, time.perf_counter() - t0 - (perf['scan'] - scan_before))
+                    deadline = time.monotonic() + self.cfg.expansion_budget_seconds
+                    pdet, checked, limit = 0, 1, 0
+                    if self.is_detail(u):
+                        self.expansion['detail_pagination_skipped'] += 1
+                    else:
+                        pdet, checked, limit = await self.crawl_pagination(
+                            p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                        await self.crawl_load_more(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                    await self.crawl_year_options(p, ctx, p.url, depth, response_docs, [], perf, deadline, capture)
+                if depth == 0:
+                    self.homepage_fallback()      # sparse-site safety net (keyword filter too strict)
                 documents = [(doc, src, label) for (actual, doc), (src, label) in evidence.items()
                              if actual == source_url]
                 found = bool(documents)
@@ -1948,6 +2586,13 @@ class Collector:
         direct_counts = dict(self.db.execute('SELECT status,COUNT(*) FROM pages WHERE depth=1 GROUP BY status'))
         logging.info('Homepage link outcomes (depth 1): %s; unvisited URLs remain in classified_pages.csv', direct_counts)
         logging.info('Homepage audit: see source=homepage in PRIORITY_REPORT.csv')
+        logging.info('KEYWORDS engine=%s %s | pagination_gated=%s section_dead=%s trap_article_not_followed=%s '
+                     'trap_article_no_interaction=%s keyword_fallback=%s', 'on' if self.kw.active else 'off',
+                     ' '.join('%s=%s' % kv for kv in sorted(self.kw_stats.items())),
+                     self.expansion.get('pagination_gated', 0), self.expansion.get('section_dead', 0),
+                     self.expansion.get('trap_article_not_followed', 0),
+                     self.expansion.get('trap_article_no_interaction', 0),
+                     self.expansion.get('keyword_fallback', 0))
         logging.info(
             'FINAL seed=%s discovered=%s processed=%s document_pages=%s documents=%s html=%s failed=%s '
             'skipped=%s duplicates=%s pagination=%s pagination_limits=%s pagination_states=%s '
@@ -2173,6 +2818,9 @@ async def amain(a):
                         format='%(asctime)sZ %(levelname)s %(message)s',
                         handlers=handlers, force=True)
     cfg = Config.load(a.config)
+    if a.keywords_dir:
+        cfg.keywords_dir = a.keywords_dir
+    get_keyword_engine(cfg)      # load once, log what was found
     seeds = seed_values(a.website_url, a.seeds)
     root = Path(a.output_dir)
     root.mkdir(parents=True, exist_ok=True)
@@ -2212,6 +2860,27 @@ async def amain(a):
         raise SystemExit(f'{len(failures)} seed(s) failed')
 
 
+def run_keyword_tests(a):
+    """python URLPART1.PY --test-url https://site/path  [--test-text "Link text"]  (no crawling)"""
+    cfg = Config.load(a.config)
+    if a.keywords_dir:
+        cfg.keywords_dir = a.keywords_dir
+    logging.basicConfig(level='WARNING', format='%(message)s', force=True)
+    eng = get_keyword_engine(cfg)
+    print(eng.describe())
+    urls = list(a.test_url or [])
+    if a.test_file and Path(a.test_file).exists():
+        urls += [x.strip() for x in Path(a.test_file).read_text(encoding='utf-8-sig', errors='ignore').splitlines()
+                 if x.strip() and not x.strip().startswith('#')]
+    seed_lang = None
+    print()
+    for u in urls:
+        d = eng.decide(u, a.test_text or '', None, seed_lang)
+        print('%-7s %-9s %-34s %s' % ('FOLLOW' if d.allow else 'REJECT', d.kind, d.rule[:34], u))
+    if not eng.active:
+        raise SystemExit(2)
+
+
 def main():
     p = argparse.ArgumentParser(description='Collect website pages that expose verified PDFs.')
     p.add_argument('--website-url', action='append', default=None,
@@ -2220,7 +2889,14 @@ def main():
     p.add_argument('--seeds', default='seeds.csv')
     p.add_argument('--output-dir', default='.')
     p.add_argument('--log', default='collector.log')
+    p.add_argument('--keywords-dir', default=None, help='Override the Keywords folder (default: Keywords).')
+    p.add_argument('--test-url', action='append', default=None, help='Print the keyword verdict for a URL and exit.')
+    p.add_argument('--test-file', default=None, help='Text file with URLs: print verdicts and exit.')
+    p.add_argument('--test-text', default='', help='Link text to use with --test-url.')
     a = p.parse_args()
+    if a.test_url or a.test_file:
+        run_keyword_tests(a)
+        return
     if not a.website_url:
         envval = os.getenv('WEBSITE_URL', '')
         a.website_url = [envval] if envval else []
