@@ -1,4 +1,4 @@
-name: Run Website URL Collector (Sharded)
+name: Run Website URL Collector (Shared Queue)
 
 on:
   workflow_dispatch:
@@ -18,10 +18,10 @@ on:
         required: true
         default: "12"
         type: string
-      companies_per_shard:
-        description: Companies in each small shard (smaller = better balance, more setup overhead)
+      workers:
+        description: Parallel workers picking companies from the shared queue (1-20)
         required: true
-        default: "10"
+        default: "6"
         type: string
 
 permissions:
@@ -36,7 +36,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      shards: ${{ steps.split.outputs.shards }}
+      workers: ${{ steps.split.outputs.workers }}
+      total: ${{ steps.split.outputs.total }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -44,17 +45,16 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies for the seed reader
         run: python -m pip install -r requirements.txt
-      - name: Deduplicate and divide company URLs
+      - name: Deduplicate companies and build the queue
         id: split
         env:
           INPUT_WEBSITES: ${{ inputs.website_url }}
-          COMPANIES_PER_SHARD: ${{ inputs.companies_per_shard }}
+          INPUT_WORKERS: ${{ inputs.workers }}
         shell: bash
         run: |
           python - <<'PY'
           import csv
           import json
-          import math
           import os
           from pathlib import Path
           from urllib.parse import urlsplit
@@ -76,31 +76,27 @@ jobs:
               if key not in seen:
                   seen.add(key)
                   urls.append(url)
+          if not urls:
+              raise SystemExit('No company URLs found')
 
-          # Small shards: GitHub runs 6 at a time (max-parallel below). When a runner
-          # finishes a shard, the next waiting shard starts on it automatically.
           try:
-              per_shard = max(1, int(os.environ.get('COMPANIES_PER_SHARD', '10')))
+              requested = int(os.environ.get('INPUT_WORKERS', '6'))
           except ValueError:
-              per_shard = 10
-          count = max(1, math.ceil(len(urls) / per_shard))
-          if count > 250:  # GitHub matrix limit is 256 jobs
-              raise SystemExit(f'{count} shards is too many; increase companies_per_shard')
+              requested = 6
+          workers = max(1, min(20, requested, len(urls)))
 
-          shards = list(range(1, count + 1))
+          # The queue: one tiny seed file per company, numbered 1..N.
           folder = Path('crawl-batches')
           folder.mkdir()
-          for shard in shards:
-              # Round-robin keeps neighbouring (often similar-size) companies apart.
-              batch = urls[shard - 1::count]
-              with (folder / f'shard-{shard}.csv').open('w', encoding='utf-8', newline='') as f:
+          for n, url in enumerate(urls, start=1):
+              with (folder / f'company-{n}.csv').open('w', encoding='utf-8', newline='') as f:
                   writer = csv.writer(f)
                   writer.writerow(['website_url'])
-                  writer.writerows((url,) for url in batch)
-              print(f'Shard {shard}: {len(batch)} company URL(s)')
-          print(f'Total: {len(urls)} companies in {count} shards')
+                  writer.writerow([url])
+          print(f'Queue: {len(urls)} companies, {workers} workers')
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
-              print(f'shards={json.dumps(shards)}', file=f)
+              print(f'workers={json.dumps(list(range(1, workers + 1)))}', file=f)
+              print(f'total={len(urls)}', file=f)
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -109,15 +105,18 @@ jobs:
           if-no-files-found: error
 
   collect:
-    name: Crawl shard ${{ matrix.shard }}
+    name: Worker ${{ matrix.shard }}
     needs: prepare
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 350
+    # contents: write is needed only to create the small "claim" refs that stop
+    # two workers taking the same company. They are deleted by the cleanup job.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
-      max-parallel: 6
       matrix:
-        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+        shard: ${{ fromJSON(needs.prepare.outputs.workers) }}
     env:
       WEBSITE_URL: ""
       MAX_PAGES: ${{ inputs.max_pages }}
@@ -144,15 +143,44 @@ jobs:
         with:
           name: crawl-seed-batches
           path: crawl-batches
-      - name: Run collector on this shard
+      - name: Pick companies from the shared queue until it is empty
         env:
-          SHARD: ${{ matrix.shard }}
+          GH_TOKEN: ${{ github.token }}
+          WORKER: ${{ matrix.shard }}
+          TOTAL: ${{ needs.prepare.outputs.total }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          CLAIM_DEADLINE_MIN: "170"
         shell: bash
         run: |
+          set -uo pipefail
           mkdir -p crawl-output
-          python url_collector.py --seeds "crawl-batches/shard-$SHARD.csv" \
-            --output-dir crawl-output --log crawl-output/collector.log
-      - name: Upload shard reports and per-company backups
+          START=$(date +%s)
+          DONE=0
+          for N in $(seq 1 "$TOTAL"); do
+            if [ $(( $(date +%s) - START )) -ge $(( CLAIM_DEADLINE_MIN * 60 )) ]; then
+              echo "::warning::Worker $WORKER stopped taking new companies after ${CLAIM_DEADLINE_MIN} min"
+              break
+            fi
+            # Atomic claim: creating a ref that already exists fails, so only one
+            # worker can ever win company N.
+            if ! RESP=$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                  -f "ref=refs/heads/claims/$RUN_KEY/$N" -f "sha=$GITHUB_SHA" 2>&1); then
+              if echo "$RESP" | grep -qi "already exists"; then
+                continue
+              fi
+              echo "::error::Worker $WORKER could not claim company $N: $RESP"
+              exit 1
+            fi
+            echo "=== Worker $WORKER claimed company $N of $TOTAL ==="
+            OUT="crawl-output/company-$N"
+            mkdir -p "$OUT"
+            python url_collector.py --seeds "crawl-batches/company-$N.csv" \
+              --output-dir "$OUT" --log "$OUT/collector.log" \
+              || echo "::warning::Company $N exited with an error; worker $WORKER continues"
+            DONE=$((DONE + 1))
+          done
+          echo "Worker $WORKER finished $DONE companies in $(( $(date +%s) - START ))s"
+      - name: Upload worker reports and per-company backups
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
@@ -160,6 +188,26 @@ jobs:
           path: crawl-output/
           if-no-files-found: warn
           retention-days: 30
+
+  cleanup:
+    name: Delete queue claims
+    needs: collect
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Delete claim refs for this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/heads/claims/$RUN_KEY/" \
+            --jq '.[].ref' | while read -r ref; do
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/${ref}" || true
+            done
 
   publish:
     name: Merge and publish once
@@ -185,40 +233,59 @@ jobs:
           path: shard-reports
       - name: Merge the root CSVs, keeping one header per file
         env:
-          EXPECTED_SHARDS: ${{ needs.prepare.outputs.shards }}
+          TOTAL: ${{ needs.prepare.outputs.total }}
         shell: bash
         run: |
           python - <<'PY'
           import csv
-          import json
           import os
+          import re
           from pathlib import Path
 
           names = ('classified_pages.csv', 'pdf_pages.csv', 'html_pages.csv',
                    'failed_pages.csv', 'document_evidence.csv', 'skipped_pages.csv',
                    'PERFORMANCE_REPORT.csv', 'PRIORITY_REPORT.csv')
-          shards = json.loads(os.environ['EXPECTED_SHARDS'])
+          total = int(os.environ['TOTAL'])
+
+          def num(p):
+              return int(re.search(r'company-(\d+)$', p.name).group(1))
+
+          # shard-reports/collector-shard-W/company-N/<files>
+          company_dirs = sorted(
+              (d for d in Path('shard-reports').glob('collector-shard-*/company-*') if d.is_dir()),
+              key=num)
+          found = {num(d) for d in company_dirs}
+          missing = sorted(set(range(1, total + 1)) - found)
+          if missing:
+              print(f'::warning::{len(missing)} of {total} companies have no output: {missing}')
+          print(f'Merging {len(company_dirs)} of {total} companies')
+
           for name in names:
               header = None
               with open(name, 'w', encoding='utf-8-sig', newline='') as dest:
                   writer = csv.writer(dest)
-                  for shard in shards:
-                      path = Path('shard-reports') / f'collector-shard-{shard}' / name
+                  for d in company_dirs:
+                      path = d / name
+                      if not path.exists():
+                          print(f'::warning::{path} is missing')
+                          continue
                       with path.open(encoding='utf-8-sig', newline='') as f:
                           reader = csv.reader(f)
-                          columns = next(reader)
+                          columns = next(reader, None)
+                          if columns is None:
+                              continue
                           if header is None:
                               header = columns
                               writer.writerow(header)
                           elif columns != header:
                               raise SystemExit(f'CSV header mismatch: {path}')
                           writer.writerows(row for row in reader if row and row[0] != 'TOTAL')
-          logs = (Path('shard-reports') / f'collector-shard-{shard}' / 'collector.log'
-                  for shard in shards)
           with open('collector.log', 'w', encoding='utf-8') as dest:
-              for log in logs:
-                  dest.write(f'\n--- {log.parent.name} ---\n')
-                  dest.write(log.read_text(encoding='utf-8', errors='replace'))
+              for d in company_dirs:
+                  log = d / 'collector.log'
+                  if log.exists():
+                      dest.write(f'\n--- {d.parent.name} / {d.name} ---\n')
+                      dest.write(log.read_text(encoding='utf-8', errors='replace'))
           PY
       - name: Update repository CSV tables
         run: python repository_results.py
