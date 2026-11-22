@@ -1,4 +1,5 @@
 name: Run Website URL Collector (Shared Queue)
+run-name: Collector ${{ inputs.website_url != '' && 'manual' || inputs.seed_set }} (#${{ github.run_number }})
 
 on:
   workflow_dispatch:
@@ -272,9 +273,33 @@ jobs:
           tar --exclude=./.git --exclude=./work --exclude=./shard-reports \
               --exclude=./crawl-batches -cf - . | tar -xf - -C work
           # Start from this seed set's own earlier tables, never the shared root ones.
+          # A table that was split into _partN files is joined back together first.
           for f in RUN_SUMMARY.csv PDF_PAGES.csv PERFORMANCE_REPORT.csv PRIORITY_REPORT.csv; do
             rm -f "work/$f"
-            if [ -f "reports/$SET_NAME/$f" ]; then cp "reports/$SET_NAME/$f" "work/$f"; fi
+            base="${f%.csv}"
+            if [ -f "reports/$SET_NAME/$f" ]; then
+              cp "reports/$SET_NAME/$f" "work/$f"
+            elif ls "reports/$SET_NAME/${base}_part"*.csv >/dev/null 2>&1; then
+              python - "$SET_NAME" "$base" "work/$f" <<'PY'
+          import csv
+          import glob
+          import re
+          import sys
+          set_name, base, dest = sys.argv[1:4]
+          parts = sorted(glob.glob(f'reports/{set_name}/{base}_part*.csv'),
+                         key=lambda p: int(re.search(r'_part(\d+)\.csv$', p).group(1)))
+          with open(dest, 'w', encoding='utf-8-sig', newline='') as out:
+              writer = csv.writer(out)
+              for i, p in enumerate(parts):
+                  with open(p, encoding='utf-8-sig', newline='') as src:
+                      reader = csv.reader(src)
+                      header = next(reader, None)
+                      if i == 0 and header:
+                          writer.writerow(header)
+                      writer.writerows(reader)
+          print(f'Joined {len(parts)} parts into {dest}')
+          PY
+            fi
           done
           python - <<'PY'
           import csv
@@ -380,14 +405,65 @@ jobs:
           # Get the newest branch state now that we hold the lock.
           git pull --ff-only origin "$BRANCH"
           mkdir -p "reports/$SET_NAME"
-          for f in RUN_SUMMARY.csv PDF_PAGES.csv PERFORMANCE_REPORT.csv PRIORITY_REPORT.csv COMPANY_SUMMARY.csv; do
-            cp "work/$f" "reports/$SET_NAME/$f"
-          done
-          git add -f "reports/$SET_NAME"
+          # Clear this set's old tables (including old _partN files); they are rewritten below.
+          rm -f "reports/$SET_NAME"/*.csv
+          # GitHub rejects files over 100 MB, so any table over 40 MB is saved as
+          # NAME_part1.csv, NAME_part2.csv ... Each part keeps the header row.
+          python - "$SET_NAME" <<'PY'
+          import csv
+          import io
+          import os
+          import shutil
+          import sys
+
+          set_name = sys.argv[1]
+          LIMIT = 40 * 1024 * 1024
+          out_dir = f'reports/{set_name}'
+          for f in ('RUN_SUMMARY.csv', 'PDF_PAGES.csv', 'PERFORMANCE_REPORT.csv',
+                    'PRIORITY_REPORT.csv', 'COMPANY_SUMMARY.csv'):
+              src = f'work/{f}'
+              if not os.path.exists(src):
+                  continue
+              size = os.path.getsize(src)
+              if size <= LIMIT:
+                  shutil.copyfile(src, f'{out_dir}/{f}')
+                  continue
+              base = f[:-4]
+              part, written, writer, out = 0, 0, None, None
+              with open(src, encoding='utf-8-sig', newline='') as fin:
+                  reader = csv.reader(fin)
+                  header = next(reader)
+                  for row in reader:
+                      buf = io.StringIO()
+                      csv.writer(buf).writerow(row)
+                      line = buf.getvalue()
+                      n = len(line.encode('utf-8'))
+                      if out is None or written + n > LIMIT:
+                          if out:
+                              out.close()
+                          part += 1
+                          out = open(f'{out_dir}/{base}_part{part}.csv', 'w',
+                                     encoding='utf-8-sig', newline='')
+                          writer = csv.writer(out)
+                          writer.writerow(header)
+                          written = 0
+                      out.write(line)
+                      written += n
+              if out:
+                  out.close()
+              print(f'{f}: {size / 1048576:.1f} MB split into {part} parts')
+          PY
+          git add -A -f "reports/$SET_NAME"
           # Safety: this run may only change its own seed set's folder.
           OUTSIDE=$(git diff --cached --name-only | grep -v "^reports/$SET_NAME/" || true)
           if [ -n "$OUTSIDE" ]; then
             echo "::error::Refusing to commit files outside reports/$SET_NAME/: $OUTSIDE"
+            exit 1
+          fi
+          # Safety: never try to push a file GitHub will reject.
+          BIG=$(find "reports/$SET_NAME" -type f -size +90M || true)
+          if [ -n "$BIG" ]; then
+            echo "::error::Files over 90 MB cannot be pushed: $BIG"
             exit 1
           fi
           if git diff --cached --quiet; then
@@ -396,7 +472,16 @@ jobs:
           fi
           git commit -m "Update website collector reports ($SET_NAME)"
           for try in 1 2 3 4 5; do
-            if git push origin "HEAD:$BRANCH"; then exit 0; fi
+            if OUT=$(git push origin "HEAD:$BRANCH" 2>&1); then
+              echo "$OUT"
+              exit 0
+            fi
+            echo "$OUT"
+            # Retrying cannot fix a rejected file, so stop straight away.
+            if echo "$OUT" | grep -q "pre-receive hook declined"; then
+              echo "::error::GitHub rejected the push (see messages above)"
+              exit 1
+            fi
             git pull --rebase origin "$BRANCH" || true
             sleep $((try * 5))
           done
