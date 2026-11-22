@@ -1,0 +1,234 @@
+﻿run_date,seed_set,queue_no,company_url,discovered_links,pages_processed,captured_pages,other_html_pages,failed_pages,skipped_pages,blocked_http,remaining_links,stop_reason,status,status_reason,run_id
+2026-11-22 07:07:12 UTC,seeds_5,1,https://www.wafaassurance.ma/fr,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,2,https://www.norwegian.no/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,3,https://www.arl.com.pk/,190,147,65,40,2,41,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,4,https://www.orange.pl/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,5,https://www.alijarah.com/,63,43,6,17,0,20,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,6,https://qatarcinemas.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,7,https://www.bashneft.ru/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,8,https://qic-group.com/,522,375,229,0,121,26,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,9,https://www.sab.com/,73,48,7,15,0,25,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,10,https://www.der3.com/,44,25,0,6,0,19,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,11,https://www.sensysgatso.com/se/,146,132,98,20,0,14,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,12,https://www.vitrolife.com/,34,22,1,9,0,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,13,https://www.nwg.se/,45,41,15,22,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,14,https://www.betssonab.com/,79,59,18,21,2,18,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,15,http://www.orellfuessli.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,16,https://www.calidagroup.com/,26,17,6,2,0,9,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,17,https://www.datwyler.com/,281,244,106,110,32,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,18,https://www.eeii.ch/home/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,19,https://selcukecza.com.tr/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,20,https://www.schroders.com/en/uk/private-investor/fund-centre/funds-in-focus/investment-trusts/schroders-investment-trusts/schroder-real-estate-investment-trust/,4556,2366,0,176,4,2186,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,21,https://www.merchantstrust.co.uk/,45,30,4,11,2,13,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,22,https://www.bailliegifford.com/individual-investors/funds/scottish-american-investment-company/,593,432,7,250,155,6,9,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,23,https://www.bailliegifford.com/en/uk/individual-investors/funds/edinburgh-worldwide-investment-trust/,572,359,1,145,125,88,10,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,24,https://www.northernoil.com/,88,53,12,6,1,34,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,25,https://www.milestonescientific.com/,137,106,5,70,3,28,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,26,https://investor.alaskaair.com/,333,298,27,233,9,26,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,27,https://www.graham-mfg.com/,12,6,0,0,5,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=5, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,28,https://mauiland.com/,67,36,1,4,0,31,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,29,https://www.onitygroup.com/,64,49,26,8,4,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,30,https://ir.championhomes.com/overview/default.aspx,29,15,0,1,10,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,31,https://twindisc.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,32,http://www.calfirstbancorp.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,33,https://www.digi.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,34,https://lbfoster.com/en,59,41,26,1,0,18,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,35,https://www.kclife.com/,18,13,2,6,1,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,36,https://www.lawsonproducts.com/,13,7,0,1,0,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,37,https://vaxart.com/,34,30,20,7,4,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,38,https://www.gtbiopharma.com/,355,237,16,96,113,5,93,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,39,https://www.smartglass.com/,15,9,0,3,3,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,40,https://genasys.com/,210,105,0,0,104,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=104, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,41,https://www.auburnbank.com/,35,27,0,19,1,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,42,https://www.adib.eg/,73,44,8,7,0,29,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,43,https://protaratx.com/,46,36,13,12,8,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,44,https://www.xpel.com/,72,59,6,39,8,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,45,https://www.ellingtonfinancial.com/,32,25,12,6,5,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,46,https://www.blue-cap.de/,44,39,15,16,0,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,47,https://sorrentotherapeutics.com/,132,69,3,2,62,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,48,https://www.stokvis.ma/,10,6,0,2,1,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,49,https://sindhutrade.com/,9,8,3,4,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,50,https://www.cavotec.com/,37,30,1,22,3,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,51,https://invisio.com/,82,56,8,22,0,26,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,52,https://www.aldeyra.com/,25,22,9,10,1,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,53,https://www.carmila.com/,2,1,0,0,1,0,1,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=1, 401/403/429=1)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,54,https://www.bankin.fo/,21,12,2,1,0,9,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,55,https://www.rolexrings.com/,7,4,0,1,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,56,https://syndax.com/,155,81,0,7,73,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,57,https://www.varunbeverages.com/,64,53,12,28,0,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,58,https://www.alinma.com/,354,207,17,43,136,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,59,https://www.gpw.pl/,290,238,32,155,10,42,1,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,60,https://www.agthia.com/,77,50,7,19,1,26,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,61,https://investors.mastercraft.com/,2,1,0,0,1,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,62,https://www.everspin.com/,53,47,33,8,2,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,63,https://www.tandemdiabetes.com/,286,233,91,78,49,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,64,https://www.strabag.com/,198,180,68,93,6,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,65,https://www.bsdcity.com/,157,106,7,47,0,51,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,66,https://uzmagroup.com/,15,12,2,7,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,67,https://www.opko.com/,201,128,7,51,1,72,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,68,https://strideproperty.co.nz/,22,15,4,5,0,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,69,https://www.karolinskadevelopment.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,70,https://sansera.in/,40,25,2,8,4,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,71,https://www.aramco.com/,276,138,0,0,0,138,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,72,https://www.ccbg.com/,188,166,26,113,2,20,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,73,https://www.rakbank.ae/,124,109,0,94,3,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,74,https://www.atlantasanad.ma/,6,4,0,2,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,75,https://vipindustries.co.in/,56,39,17,5,0,17,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,76,https://ir.hbtfinancial.com/,25,24,17,6,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,77,https://masangroup.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,78,https://www.bachem.com/,51,42,15,16,2,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,79,https://si-bone.com/,142,114,0,86,3,25,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,80,https://www.sbicard.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,81,https://punjabandsindbank.co.in/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,82,http://www.aussiebroadband.com.au/,32,28,1,23,3,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,83,https://www.synlogictx.com/,68,61,48,6,2,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,84,https://www.contrafect.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,85,https://www.oconeefederal.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,86,https://www.syntheticmr.com/,3,2,0,1,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,87,https://www.msiglife.co.id/,46,38,3,27,0,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,88,https://puregold.com.ph/index.php/?SID=4t8tc1rbesub3kfs9fahl0omf4,25,21,9,8,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,89,https://www.acutusmedical.com/us,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,90,https://ose-immuno.com/,34,17,0,0,16,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=16, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,91,https://mahindralogistics.com/,76,62,22,21,0,14,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,92,https://spandanasphoorty.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,93,https://www.nurixtx.com/,24,21,13,5,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,94,https://www.pesona.com.my/,32,30,17,7,1,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,95,https://www.ellingtoncredit.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,96,https://www.galeratx.com/,28,19,1,9,4,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,97,https://www.monnalisa.com/it-it/,56,32,0,8,1,23,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,98,https://www.chmireit.com/,38,32,16,10,2,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,99,http://codiagnostics.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,100,https://www.solidbio.com/,88,74,17,47,5,9,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,101,https://www.ltts.com/,180,90,0,0,90,0,90,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=90, 401/403/429=90)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,102,https://www.sportsmans.com/,345,334,0,89,3,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,103,https://sqzbiotech.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,104,https://metacon.se/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,105,https://www.empiric.co.uk/,2,1,0,0,1,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,106,https://www.stoketherapeutics.com/,19,13,1,6,4,2,2,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,107,https://www.gocolors.com/,21,18,8,7,2,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,108,https://www.elm.sa/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,109,https://www.fluentco.com/,97,84,52,24,6,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,110,https://www.cairnhomes.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,111,https://aytubio.com/,15,10,0,5,1,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,112,https://www.clipperrealty.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,113,https://evelobio.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,114,https://cervomed.com/,28,25,15,11,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,115,https://tectonictx.com/,12,7,0,2,1,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,116,https://www.healthcatalyst.com/,126,97,12,57,6,23,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,117,https://www.foresight.group/privacy-policy,1648,864,15,64,717,67,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,118,https://www.dalmiabharat.com/,138,89,0,40,1,48,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,119,https://www.cleopatrahospitals.com/,47,34,2,19,1,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,120,https://sezzle.com/,62,54,21,25,1,7,1,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,121,https://www.fulcrumtx.com/,36,27,10,8,3,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,122,https://www.niholdingsinc.com/,15,13,9,2,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,123,https://hffoodsgroup.com/,56,46,30,9,0,10,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,124,https://dianthustx.com/,12,10,5,2,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,125,https://acarix.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,126,https://www.keyenergy.com/,21,13,2,3,0,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,127,https://opc-energy.com/,27,19,8,3,0,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,128,https://www.irbinvit.co.in/,31,27,1,22,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,129,https://www.lazydays.com/,47,28,0,9,1,18,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,130,https://www.ibex.co/,67,34,1,0,1,32,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,131,https://www.nkartatx.com/,45,36,23,4,1,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,132,https://beamtx.com/,17,15,6,7,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,133,https://ir.gooseheadinsurance.com/,26,19,11,1,4,3,1,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,134,https://www.pulsebiosciences.com/,63,43,12,11,4,16,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,135,https://www.aligos.com/,26,25,14,14,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,136,https://markertherapeutics.com/,51,49,25,22,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,137,https://www.fathomrealty.com/,17,17,0,17,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,138,https://www.seitplc.com/,309,304,81,218,1,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,139,https://kurasushi.com/,27,14,0,1,4,9,4,0,unknown (no RUN_SUMMARY in output),BLOCKED,mostly blocked responses (4 of 5 requests were 401/403/429),44991160136
+2026-11-22 07:07:12 UTC,seeds_5,140,https://www.bridgepoint.eu/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,141,https://investors.organogenesis.com/,33,20,3,4,6,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,142,https://www.pennantgroup.com/,22,21,12,8,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,143,https://www.onewatermarine.com/,25,22,9,10,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,144,https://www.tscan.com/,1,1,0,1,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,145,https://www.cerence.com/,88,64,41,11,1,23,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,146,https://www.aprea.com/,39,35,23,8,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,147,https://www.bogotasavingsbank.com/,36,24,3,9,0,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,148,https://www.biontech.com/,264,245,196,34,2,17,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,149,https://www.cementirholding.com/en,236,223,143,65,12,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,150,https://ninetyone.com/en/south-africa/investor-relations/contact-investor-relations,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,151,https://sagacom.com/,24,14,0,4,5,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,152,https://investor.opendoor.com/,34,26,5,13,1,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,153,https://www.technipenergies.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,154,https://universalmusic.nl/,59,30,1,0,0,29,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,155,https://www.petershillpartners.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,156,https://gxo.com/,216,156,13,83,16,44,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,157,https://ir.airship.ai/,74,65,48,11,2,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,158,https://investors.hasi.com/,178,110,3,40,33,35,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,159,https://www.gjsteel.co.th/,81,63,21,34,0,18,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,160,https://www.ahlers-ag.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,161,https://www.bkb.ch/,19,11,0,3,1,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,162,https://domain link not available/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,163,https://www.fonar.com/,16,11,3,3,0,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,164,https://www.potbelly.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,165,https://sanuwave.com/,30,24,7,7,0,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,166,https://www.shiproadrunnerfreight.com/,101,57,1,12,0,44,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,167,https://kancera.com/,2,1,0,0,1,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,168,https://www.organigram.ca/,96,52,2,6,0,44,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,169,https://www.creades.se/,6,5,0,4,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,170,https://investors.pointsbet.com.au/,77,66,0,55,0,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,171,https://www.snb.ch/,202,196,97,93,1,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,172,https://investor.siameseasset.co.th/en/home,70,56,6,40,6,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,173,https://senxgroup.com/en/,102,64,8,18,3,35,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,174,https://www.sgcapital.co.th/en/home,149,138,11,120,0,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,175,https://www.mountviewplc.co.uk/,5,5,1,4,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,176,https://ccf.us/,107,65,0,23,26,16,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,177,https://investor.cfbankonline.com/corporate-profile/default.aspx,58,32,0,6,1,25,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,178,https://ir.mtronpti.com/,52,28,0,4,2,22,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,179,https://www.ggcplc.com/en/home,227,207,56,147,0,20,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,180,https://www.skyict.co.th/,109,55,0,1,53,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,181,https://www.vichaivej.com/,201,156,21,88,8,37,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,182,https://www.sermsang.com/home,182,180,33,149,1,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,183,https://www.siamrajathanee.com/th,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,184,https://www.nipponactivevaluefund.com/,162,158,11,11,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,185,https://www.addtechhub.com/,50,44,20,18,0,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,186,https://www.vibhavadi.com/,132,125,38,87,1,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,187,https://freqelec.com/,27,26,19,6,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,188,https://www.clearone.com/,36,36,31,5,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,189,https://www.symphony.net.th/,158,149,24,120,0,9,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,190,https://itcity.co.th/,218,193,40,128,3,22,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,191,https://www.precise.co.th/,54,47,5,34,5,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,192,https://www.allyreit.com/,30,28,11,19,2,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,193,https://www.starflex.co.th/,62,34,10,2,21,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,194,https://www.chase.co.th/en/home,70,57,18,34,0,13,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,195,https://asianalliance.co.th/,52,51,18,38,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,196,https://www.dittothailand.com/,69,40,7,4,17,12,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,197,https://www.microleasingplc.com/,71,60,14,35,0,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,198,https://www.sena.co.th/,132,100,5,63,11,21,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,199,https://www.cuckoo.com.my/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,200,https://www.friedmanindustries.com/,16,9,0,2,6,1,5,0,unknown (no RUN_SUMMARY in output),BLOCKED,mostly blocked responses (5 of 8 requests were 401/403/429),44991160136
+2026-11-22 07:07:12 UTC,seeds_5,201,https://amarin.co.th/en/,169,103,10,23,0,66,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,202,https://investor.theoneenterprise.com/en/home,70,49,20,19,0,21,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,203,https://www.tge.co.th/,194,131,23,52,63,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,204,https://www.calcomp.co.th/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,205,https://vizslasilvercorp.com/,50,44,0,38,0,6,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,206,https://nslfoods.com/,104,96,29,59,3,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,207,https://www.kjl.co.th/,68,67,19,54,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,208,https://www.avidbank.com/,41,32,0,23,2,7,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,209,https://thairung.co.th/en/,153,152,150,0,0,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,210,https://www.svoa.co.th/,2,1,0,0,1,0,1,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=1, 401/403/429=1)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,211,https://sunsweetthai.com/,46,29,6,6,0,17,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,212,https://www.fncadvisor.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,213,https://www.pro-dex.com/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,214,https://eledon.com/,42,36,28,10,1,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,215,https://www.pqstarch.com/,26,15,1,3,0,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,216,https://tat-technologies.com/,68,59,37,13,0,9,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,217,https://www.malee.co.th/en,11,6,0,1,0,5,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,218,https://www.alucon.th.com/,1,1,0,1,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,219,https://www.seafco.co.th/en,55,53,9,45,1,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,220,https://assetfive.co.th/en/,2,1,0,0,0,1,0,0,unknown (no RUN_SUMMARY in output),BLOCKED,"no page loaded successfully (failed=0, 401/403/429=0)",44991160136
+2026-11-22 07:07:12 UTC,seeds_5,221,https://www.octopusinvestments.com/investor/our-products/venture-capital-trusts/octopus-aim-vcts,99,59,0,19,39,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,222,https://montanaro.co.uk/trust/montanaro-uk-smaller-companies-investment-trust/,236,148,20,40,1,87,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,223,https://nvm.co.uk/,18,14,0,10,0,4,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,224,https://www.nsitplc.com/,12,12,3,7,0,0,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,225,https://energyservicesofamerica.com/,46,33,5,15,2,11,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,226,https://www.espey.com/,35,33,14,16,0,2,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,227,https://ir.isabellabank.com/investor-relations/default.aspx,68,43,3,15,1,24,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,228,https://rfindustries.com/,87,44,0,1,8,35,8,0,unknown (no RUN_SUMMARY in output),BLOCKED,mostly blocked responses (8 of 9 requests were 401/403/429),44991160136
+2026-11-22 07:07:12 UTC,seeds_5,229,https://oberonaimvct.co.uk/,49,47,11,33,1,1,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,230,https://palisadebio.com/,29,26,0,23,0,3,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,231,https://fitlifebrands.com/,88,47,0,6,1,40,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,232,https://turacogold.com.au/,40,32,10,14,0,8,0,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
+2026-11-22 07:07:12 UTC,seeds_5,233,https://ir.duostechnologies.com/,155,85,6,9,57,13,57,0,unknown (no RUN_SUMMARY in output),COMPLETED,queue exhausted,44991160136
