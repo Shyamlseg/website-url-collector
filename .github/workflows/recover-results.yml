@@ -1,0 +1,220 @@
+name: Publish saved results from a failed run
+run-name: Recover run ${{ inputs.run_id }}
+
+# Use this when a collector run finished crawling but its "Merge and publish once"
+# job failed (for example because a file was over 100 MB). It takes the merged
+# reports that the failed run already saved as the "url-collector-results"
+# artifact and publishes them, with big tables split into parts. No crawling.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run ID of the failed run (the long number at the end of its web address)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-url-collector-recover-${{ inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Publish saved reports
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: read
+    env:
+      SOURCE_RUN: ${{ inputs.run_id }}
+      BRANCH: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Check the run ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! echo "$SOURCE_RUN" | grep -Eq '^[0-9]{6,}$'; then
+            echo "::error::Run ID must be only the long number from the run's web address"
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" \
+            --jq '"Source run: #\(.run_number) \(.name) - \(.status)/\(.conclusion)"'
+      - uses: actions/download-artifact@v4
+        with:
+          name: url-collector-results
+          path: recovered
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Find the seed set and the saved tables
+        id: found
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=$(dirname "$(find recovered -name COMPANY_SUMMARY.csv | head -n 1)")
+          if [ -z "$SRC" ] || [ "$SRC" = "." ]; then
+            echo "::error::COMPANY_SUMMARY.csv not found in the saved artifact"
+            exit 1
+          fi
+          # The seed set is read from the saved data itself, so it cannot be mixed up.
+          SET_NAME=$(python - "$SRC/COMPANY_SUMMARY.csv" <<'PY'
+          import csv
+          import sys
+          with open(sys.argv[1], encoding='utf-8-sig', newline='') as f:
+              names = {r.get('seed_set', '') for r in csv.DictReader(f) if r.get('seed_set')}
+          if len(names) != 1:
+              raise SystemExit(f'Expected one seed set in COMPANY_SUMMARY.csv, found: {sorted(names)}')
+          name = names.pop()
+          if not name.replace('_', '').isalnum():
+              raise SystemExit(f'Unexpected seed set name: {name!r}')
+          print(name)
+          PY
+          )
+          echo "Seed set in this run: $SET_NAME"
+          echo "src=$SRC" >> "$GITHUB_OUTPUT"
+          echo "set_name=$SET_NAME" >> "$GITHUB_OUTPUT"
+          ls -la "$SRC"
+
+      # Ticket lock: shares the same queue as the collector's publish job.
+      - name: Wait for the publish lock
+        id: lock
+        shell: bash
+        run: |
+          set -uo pipefail
+          R="$GITHUB_REPOSITORY"
+          TICKET="locks/publish/$(date +%s%N)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh api -X POST "repos/$R/git/refs" -f "ref=refs/heads/$TICKET" -f "sha=$GITHUB_SHA" > /dev/null
+          echo "ticket=$TICKET" >> "$GITHUB_OUTPUT"
+          for i in $(seq 1 240); do
+            AHEAD_ACTIVE=0
+            while read -r ref; do
+              [ -z "$ref" ] && continue
+              if [ "$ref" = "refs/heads/$TICKET" ]; then break; fi
+              rid=$(basename "$ref" | cut -d- -f2)
+              status=$(gh api "repos/$R/actions/runs/$rid" --jq .status 2>/dev/null || echo unknown)
+              if [ "$status" = "completed" ] || [ "$rid" = "$GITHUB_RUN_ID" ]; then
+                gh api -X DELETE "repos/$R/git/$ref" > /dev/null 2>&1 || true
+                continue
+              fi
+              AHEAD_ACTIVE=1
+              echo "Waiting: run $rid is publishing first"
+              break
+            done < <(gh api --paginate "repos/$R/git/matching-refs/heads/locks/publish/" --jq '.[].ref' | sort)
+            if [ "$AHEAD_ACTIVE" = "0" ]; then
+              echo "Publish lock acquired"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Timed out after 60 min waiting for the publish lock"
+          exit 1
+
+      - name: Commit the saved reports
+        env:
+          SRC: ${{ steps.found.outputs.src }}
+          SET_NAME: ${{ steps.found.outputs.set_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --ff-only origin "$BRANCH"
+          mkdir -p "reports/$SET_NAME"
+          rm -f "reports/$SET_NAME"/*.csv
+          # Tables over 40 MB are saved as NAME_part1.csv, NAME_part2.csv ...
+          # Each part keeps the header row, and no row is cut in half.
+          python - "$SET_NAME" "$SRC" <<'PY'
+          import csv
+          import io
+          import os
+          import shutil
+          import sys
+
+          set_name, src_dir = sys.argv[1:3]
+          LIMIT = 40 * 1024 * 1024
+          out_dir = f'reports/{set_name}'
+          for f in ('RUN_SUMMARY.csv', 'PDF_PAGES.csv', 'PERFORMANCE_REPORT.csv',
+                    'PRIORITY_REPORT.csv', 'COMPANY_SUMMARY.csv'):
+              src = os.path.join(src_dir, f)
+              if not os.path.exists(src):
+                  print(f'::warning::{f} was not in the saved artifact')
+                  continue
+              size = os.path.getsize(src)
+              if size <= LIMIT:
+                  shutil.copyfile(src, f'{out_dir}/{f}')
+                  print(f'{f}: {size / 1048576:.1f} MB copied')
+                  continue
+              base = f[:-4]
+              part, written, writer, out = 0, 0, None, None
+              with open(src, encoding='utf-8-sig', newline='') as fin:
+                  reader = csv.reader(fin)
+                  header = next(reader)
+                  for row in reader:
+                      buf = io.StringIO()
+                      csv.writer(buf).writerow(row)
+                      line = buf.getvalue()
+                      n = len(line.encode('utf-8'))
+                      if out is None or written + n > LIMIT:
+                          if out:
+                              out.close()
+                          part += 1
+                          out = open(f'{out_dir}/{base}_part{part}.csv', 'w',
+                                     encoding='utf-8-sig', newline='')
+                          writer = csv.writer(out)
+                          writer.writerow(header)
+                          written = 0
+                      out.write(line)
+                      written += n
+              if out:
+                  out.close()
+              print(f'{f}: {size / 1048576:.1f} MB split into {part} parts')
+          PY
+          git add -A -f "reports/$SET_NAME"
+          OUTSIDE=$(git diff --cached --name-only | grep -v "^reports/$SET_NAME/" || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::Refusing to commit files outside reports/$SET_NAME/: $OUTSIDE"
+            exit 1
+          fi
+          BIG=$(find "reports/$SET_NAME" -type f -size +90M || true)
+          if [ -n "$BIG" ]; then
+            echo "::error::Files over 90 MB cannot be pushed: $BIG"
+            exit 1
+          fi
+          if git diff --cached --quiet; then
+            echo "Reports have no changes to commit."
+            exit 0
+          fi
+          git commit -m "Recover website collector reports ($SET_NAME) from run $SOURCE_RUN"
+          for try in 1 2 3 4 5; do
+            if OUT=$(git push origin "HEAD:$BRANCH" 2>&1); then
+              echo "$OUT"
+              exit 0
+            fi
+            echo "$OUT"
+            if echo "$OUT" | grep -q "pre-receive hook declined"; then
+              echo "::error::GitHub rejected the push (see messages above)"
+              exit 1
+            fi
+            git pull --rebase origin "$BRANCH" || true
+            sleep $((try * 5))
+          done
+          echo "::error::Could not push after 5 attempts"
+          exit 1
+
+      - name: Release the publish lock
+        if: ${{ always() && steps.lock.outputs.ticket != '' }}
+        env:
+          TICKET: ${{ steps.lock.outputs.ticket }}
+        shell: bash
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$TICKET" || true
